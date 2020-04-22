@@ -1,10 +1,10 @@
-import { ITemplate } from '../../driver';
+import { ITemplate } from '../../lib/driver';
 import { Container, ContainerSource } from '.';
 import { createContainerSource } from './create-source';
 import { flatTree } from './helpers';
 import { State, Updatable, Expression } from 'mutabl.js/dist/lib/observable';
 import { Store, asProxy, flush } from 'mutabl.js';
-import { asTemplate } from '../../tpl';
+import { asTemplate } from '../../lib/tpl';
 
 type ListItemTemplate<T> = (context: State<T>) => ITemplate[];
 

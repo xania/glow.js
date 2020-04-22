@@ -1,5 +1,5 @@
-import { ITemplate } from '../../driver';
-import { asTemplate } from '../../tpl';
+import { ITemplate } from '../../lib/driver';
+import { asTemplate } from '../../lib/tpl';
 
 export function flatTree<T>(source: Tree<T>, args: any[]): ITemplate[] {
     const stack: Tree<T> = [source];

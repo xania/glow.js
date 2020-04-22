@@ -1,5 +1,5 @@
-import { ITemplate, IDriver, Binding, disposeMany } from '../../driver';
-import { renderStack } from '../../tpl';
+import { ITemplate, IDriver, Binding, disposeMany } from '../../lib/driver';
+import { renderStack } from '../../lib/tpl';
 import { flatTree } from './helpers';
 import { Subscribable } from 'rxjs';
 
@@ -84,7 +84,10 @@ export function Container<T>(
                     const itemScope = rootScope.createScope(idx);
                     const bindings = renderStack(
                         flatTree(_children, [values, index])
-                            .map(template => ({ driver: itemScope, template }))
+                            .map((template) => ({
+                                driver: itemScope,
+                                template,
+                            }))
                             .reverse()
                     );
                     const item: ContainerItem = {
