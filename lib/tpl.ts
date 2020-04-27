@@ -14,7 +14,9 @@ import { combineLatest } from './util/combineLatest';
 
 declare type PureComponent = (...args: any) => any;
 declare type Func<T> = (arg: T) => any;
-declare type Attachable = { attach: (dom: HTMLElement) => { dispose(): any } };
+declare type Attachable = {
+    attachTo: (dom: HTMLElement) => { dispose(): any };
+};
 
 type TemplateElement =
     | Primitive
@@ -32,11 +34,12 @@ export function tpl(
     ...children: any[]
 ): ITemplate | ITemplate[] {
     if (typeof name === 'string') {
+        const flatChildren = flatTree(children, asTemplate);
         return new TagTemplate(
             name,
-            flatTree(children, asTemplate).concat(
-                props ? attributes(props) : []
-            )
+            props
+                ? (attributes(props) as ITemplate[]).concat(flatChildren)
+                : flatChildren
         );
     }
 
@@ -142,7 +145,7 @@ class TemplateAttachable implements ITemplate {
     constructor(private attachable: Attachable) {}
 
     render(driver: DomDriver) {
-        return this.attachable.attach(driver.target);
+        return this.attachable.attachTo(driver.target);
     }
 }
 class TemplateSubscription implements ITemplate {
@@ -248,19 +251,19 @@ export function asTemplate(name: any): ITemplate | ITemplate[] {
     if (typeof name === 'undefined' || name === null) {
         return __emptyTemplate;
     } else if (isTemplate(name)) return name;
+    else if (isAttachable(name)) return new TemplateAttachable(name);
     else if (typeof name === 'function') return functionAsTemplate(name);
     else if (Array.isArray(name)) return flatTree(name, asTemplate);
     else if (isPromise<TemplateInput>(name)) return new TemplatePromise(name);
     else if (isSubscribable(name)) return new TemplateObservable(name);
     else if (isSubscription(name)) return new TemplateSubscription(name);
-    else if (isAttachable(name)) return new TemplateAttachable(name);
     else if (hasProperty(name, 'view')) return asTemplate(name.view);
 
     return new NativeTemplate(name);
 }
 
 function isAttachable(value: any): value is Attachable {
-    return value && typeof value.attach === 'function';
+    return value && typeof value.attachTo === 'function';
 }
 
 function isSubscribable(value: any): value is Subscribable<unknown> {
