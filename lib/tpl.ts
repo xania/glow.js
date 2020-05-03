@@ -34,7 +34,7 @@ export function tpl(
     ...children: any[]
 ): ITemplate | ITemplate[] {
     if (typeof name === 'string') {
-        const flatChildren = flatTree(children, asTemplate);
+        const flatChildren = flatTree(children, (e) => e);
         return new TagTemplate(
             name,
             props
@@ -252,7 +252,7 @@ export function asTemplate(name: any): ITemplate | ITemplate[] {
         return __emptyTemplate;
     } else if (isTemplate(name)) return name;
     else if (isAttachable(name)) return new TemplateAttachable(name);
-    else if (typeof name === 'function') return functionAsTemplate(name);
+    else if (typeof name === 'function') return name;
     else if (Array.isArray(name)) return flatTree(name, asTemplate);
     else if (isPromise<TemplateInput>(name)) return new TemplatePromise(name);
     else if (isSubscribable(name)) return new TemplateObservable(name);
@@ -388,53 +388,8 @@ class Attribute implements ITemplate {
                 },
             };
         } else return driver.createAttribute(name, value);
-
-        // else if (isSubscribable(value)) {
-        //     let expr = value;
-        //     let attrElement = driver.createAttribute(name, expr.value);
-        //     const subscr = expr.subscribe(attrElement as any);
-        //     if (!subscr || typeof subscr.unsubscribe !== 'function')
-        //         return attrElement;
-
-        //     return {
-        //         dispose() {
-        //             subscr.unsubscribe();
-        //             attrElement.dispose();
-        //         }
-        //     }
-        // }
-        // else {
-        //     return driver.createAttribute(name, value.toString());
-        // }
     }
 }
-
-// function toAttributeValue(value: any) {
-//     if (Array.isArray(value)) {
-//         const state = new Store([]);
-//         const subscriptions = [];
-//         for (let i = 0; i < value.length; i++) {
-//             const item = value[i];
-//             if (item === null || item === undefined)
-//                 continue;
-//             if (isSubscribable(item)) {
-//                 const stateIndex = state.value.length;
-//                 subscriptions.push(
-//                     item.subscribe(v => { state.update(arr => arr[stateIndex] = v) })
-//                 );
-//             } else {
-//                 state.value.push(item);
-//             }
-//         };
-//         if (subscriptions.length === 0)
-//             return state.value;
-
-//         return state;
-
-//     } else {
-//         return value;
-//     }
-// }
 
 export function render(
     target: IDriver | HTMLElement,
@@ -442,23 +397,12 @@ export function render(
 ): Binding[] {
     const driver: IDriver = isDomNode(target) ? new DomDriver(target) : target;
     return renderStack([{ driver, template }]);
-
-    // return {
-    //     [ children ]: bindings,
-    //     // next(value) {
-    //     //     for (var i = 0; i < bindings.length; i++) {
-    //     //         var binding = bindings[i];
-    //     //         if (binding && typeof binding.next == 'function')
-    //     //             binding.next(value);
-    //     //     }
-    //     // },
-    //     // dispose() {
-    //     //     // disposeMany(bindings);
-    //     // }
-    // }
 }
 
-type StackItem = { driver: IDriver; template: ITemplate | ITemplate[] };
+type StackItem = {
+    driver: IDriver;
+    template: ITemplate | ITemplate[] | (() => any);
+};
 export function renderStack(stack: StackItem[]) {
     const bindings: Binding[] = [];
 
@@ -474,6 +418,15 @@ export function renderStack(stack: StackItem[]) {
             for (let i = template.length - 1; i >= 0; i--) {
                 stack.push({ driver, template: template[i] });
             }
+            continue;
+        } else if (typeof template === 'function') {
+            stack.push({
+                driver,
+                template: asTemplate(template.name || '[ Function ]'),
+            });
+            continue;
+        } else if (!isTemplate(template)) {
+            stack.push({ driver, template: asTemplate(template) });
             continue;
         }
 
