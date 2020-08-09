@@ -1,10 +1,10 @@
 import * as Rx from 'rxjs';
 import * as Ro from 'rxjs/operators';
 import { ContainerSource, Mutation } from './index';
-import { Updatable, Expression } from 'mutabl.js/dist/lib/observable';
 
 export function createContainerSource<T>(
-    updatable: Expression<T[]> & Updatable<T[]>
+    source: T[]
+    //     updatable: Expression<T[]> & Updatable<T[]>
 ): ContainerSource<T> {
     const mutations = new Rx.Subject<Mutation<T>>();
 
@@ -22,18 +22,7 @@ export function createContainerSource<T>(
         subscribe(...args: any[]) {
             const result = mutations.pipe(
                 Ro.tap(applyMutation),
-                Ro.merge(
-                    updatable.lift((arr, prev: any) => {
-                        if (Array.isArray(arr)) {
-                            if (prev && prev.items) {
-                                if (prev.items === arr) {
-                                    return prev;
-                                }
-                            }
-                            return resetMutation(arr);
-                        }
-                    })
-                )
+                Ro.startWith(resetMutation(source))
             );
             return result.subscribe.apply(result, args as any);
         },
@@ -42,14 +31,10 @@ export function createContainerSource<T>(
     function applyMutation(mut: Mutation<T>) {
         if (mut.type === 'push') {
             const { values } = mut;
-            updatable.update(arr => {
-                arr.push(values);
-            });
+            source.push(values);
         } else if (mut.type === 'remove') {
             const { index } = mut;
-            updatable.update(arr => {
-                arr.splice(index, 1);
-            });
+            source.splice(index, 1);
         }
     }
 

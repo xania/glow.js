@@ -17,7 +17,6 @@
         "lint": "tsdx lint",
         "prepare": "tsdx build"
     },
-    "peerDependencies": {},
     "husky": {
         "hooks": {
             "pre-commit": "tsdx lint"
@@ -40,7 +39,9 @@
         "typescript": "^3.8.3"
     },
     "dependencies": {
-        "mutabl.js": "^0.1.2",
         "rxjs": "^6.5.5"
+    },
+    "peerDependencies": {
+        "mutabl.js": "^0.1.2"
     }
 }

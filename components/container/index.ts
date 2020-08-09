@@ -72,9 +72,14 @@ export function Container<T>(
                     disposeMany(bindings);
                     items.splice(idx, 1);
                 } else if (m.type === 'reset') {
-                    const { items } = m;
-                    for (let i = 0; i < items.length; i++) {
-                        applyInsert(items[i], i);
+                    while (items.length) {
+                        const { scope, bindings } = items.pop();
+                        scope.dispose();
+                        disposeMany(bindings);
+                    }
+
+                    for (let i = 0; i < m.items.length; i++) {
+                        applyInsert(m.items[i], i);
                     }
                 } else {
                     console.error('not a mutation ' + m);
