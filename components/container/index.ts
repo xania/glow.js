@@ -7,24 +7,60 @@ type Disposable = { dispose(): any };
 export type Mutation<T = unknown> =
     | PushItem<T>
     | InsertItem<T>
-    | RemoveItem
+    | MoveItem
+    | RemoveItem<T>
     | ResetItems<T>;
 interface PushItem<T> {
     type: 'push';
     values: T;
+}
+
+interface MoveItem {
+    type: 'move';
+    from: number;
+    to: number;
+}
+
+export function push<T>(values: T): PushItem<T> {
+    return {
+        type: 'push',
+        values,
+    };
 }
 interface InsertItem<T> {
     type: 'insert';
     values: T;
     index: number;
 }
-interface RemoveItem {
-    type: 'remove';
-    index: number;
+
+export function insert<T>(values: T, index: number): InsertItem<T> {
+    return {
+        type: 'insert',
+        values,
+        index,
+    };
 }
+interface RemoveItem<T> {
+    type: 'remove';
+    values: T;
+}
+export function remove<T>(values: T): RemoveItem<T> {
+    return {
+        type: 'remove',
+        values,
+    };
+}
+
 interface ResetItems<T> {
     type: 'reset';
     items: T[];
+}
+
+export function reset<T>(items: T[]): ResetItems<T> {
+    return {
+        type: 'reset',
+        items,
+    };
 }
 
 type ItemTemplate<T> = (values: T, index: () => number) => ITemplate[];
@@ -37,9 +73,10 @@ export function Container<T>(
 ) {
     return {
         render(driver: IDriver) {
-            const items: ContainerItem[] = [];
+            const items: ContainerItem<T>[] = [];
             const { mutations } = props;
             const rootScope = driver.createScope();
+
             return [
                 mutations.subscribe(applyMutation),
                 {
@@ -65,12 +102,14 @@ export function Container<T>(
                     const { values, index } = m;
                     applyInsert(values, index);
                 } else if (m.type === 'remove') {
-                    const idx = m.index;
-                    const item = items[idx];
-                    const { scope, bindings } = item;
-                    scope.dispose();
-                    disposeMany(bindings);
-                    items.splice(idx, 1);
+                    const idx = items.findIndex((x) => x.values === m.values);
+                    if (idx >= 0) {
+                        const item = items[idx];
+                        const { scope, bindings } = item;
+                        scope.dispose();
+                        disposeMany(bindings);
+                        items.splice(idx, 1);
+                    }
                 } else if (m.type === 'reset') {
                     while (items.length) {
                         const { scope, bindings } = items.pop();
@@ -81,8 +120,10 @@ export function Container<T>(
                     for (let i = 0; i < m.items.length; i++) {
                         applyInsert(m.items[i], i);
                     }
+                } else if (m.type === 'move') {
+                    // TODO implement!
                 } else {
-                    console.error('not a mutation ' + m);
+                    console.error('not a mutation ', m);
                 }
 
                 function applyInsert(values: T, idx: number) {
@@ -95,9 +136,10 @@ export function Container<T>(
                             }))
                             .reverse()
                     );
-                    const item: ContainerItem = {
+                    const item: ContainerItem<T> = {
                         scope: itemScope,
                         bindings,
+                        values,
                     };
                     items.splice(idx, 0, item);
 
@@ -118,11 +160,14 @@ export function Container<T>(
 
 export interface ContainerSource<T> extends Subscribable<Mutation<T>> {
     add(values: T | Mutation<T>): void;
+    reset(items: T[]): void;
+    peek<R>(fn: (items: T[]) => R): R;
 }
 
-interface ContainerItem {
+interface ContainerItem<T> {
     bindings: Binding[];
     scope: Disposable;
+    values: T;
 }
 
 export interface ContainerItemContext {

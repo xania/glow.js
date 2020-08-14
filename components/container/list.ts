@@ -29,7 +29,7 @@ export function List<T>(props: ListProps<T>, _children: ListItemTemplate<T>[]) {
             if (idx >= 0) {
                 mutations.add({
                     type: 'remove',
-                    index: idx,
+                    values,
                 });
             }
         }

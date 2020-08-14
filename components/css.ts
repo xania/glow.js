@@ -25,3 +25,28 @@ export default function Css(props: CssProps) {
         },
     };
 }
+
+interface AttrProps {
+    value: string;
+    name: string;
+    when?: Subscribable<boolean>;
+}
+export function Attr(props: AttrProps) {
+    return {
+        render(driver: IDriver) {
+            const { when, name, value } = props;
+            if (when && typeof when.subscribe === 'function') {
+                const binding = driver.createAttribute(name, undefined);
+
+                when.subscribe((e) => {
+                    if (e) binding.next(value);
+                    else binding.next([]);
+                });
+
+                return binding;
+            } else {
+                return driver.createAttribute(name, value);
+            }
+        },
+    };
+}
