@@ -48,6 +48,8 @@ export function createContainerSource<T, K>(
                         from: n,
                         to: i,
                     });
+                } else {
+                    snapshot[i] = item;
                 }
             }
         },
