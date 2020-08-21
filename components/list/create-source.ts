@@ -1,12 +1,12 @@
 import * as Rx from 'rxjs';
 import * as Ro from 'rxjs/operators';
-import { ContainerSource, Mutation, call } from './index';
+import { ListSource, Mutation, call } from './index';
 
-export function createContainerSource<T, K>(
+export function createListSource<T, K>(
     snapshot: T[],
     keySelector: (t: T) => K
     //     updatable: Expression<T[]> & Updatable<T[]>
-): ContainerSource<T> {
+): ListSource<T> {
     const mutations = new Rx.Subject<Mutation<T>>();
 
     return {

@@ -81,21 +81,34 @@ export function call<T>(func: (items: T[]) => void): CallItems<T> {
 }
 
 type ItemTemplate<T> = (key, values: T, index: () => number) => ITemplate[];
-interface ContainerProps<T> {
-    mutations: ContainerSource<T>;
+interface ListProps<T> {
+    source: ListSource<T>;
 }
-export function Container<T>(
-    props: ContainerProps<T>,
-    _children: ItemTemplate<T>[]
-) {
+export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
+    const { source } = props;
+
+    function itemTemplate(values: T, key, index: () => number) {
+        return flatTree(_children, [values, { key, index, dispose }]);
+
+        function dispose() {
+            const idx = index();
+            if (idx >= 0) {
+                source.add({
+                    type: 'remove',
+                    key,
+                });
+            }
+        }
+    }
+
     return {
         render(driver: IDriver) {
             const items: ContainerItem<T>[] = [];
-            const { mutations } = props;
+            const { source } = props;
             const rootScope = driver.createScope();
 
             return [
-                mutations.subscribe(applyMutation),
+                source.subscribe(applyMutation),
                 {
                     dispose() {
                         for (const item of items) {
@@ -141,7 +154,7 @@ export function Container<T>(
                 function applyInsert(key: any, values: T, idx: number) {
                     const itemScope = rootScope.createScope(idx);
                     const bindings = renderStack(
-                        flatTree(_children, [values, key, index])
+                        flatTree([itemTemplate], [values, key, index])
                             .map((template) => ({
                                 driver: itemScope,
                                 template,
@@ -224,7 +237,7 @@ export function Container<T>(
     };
 }
 
-export interface ContainerSource<T> extends Subscribable<Mutation<T>> {
+export interface ListSource<T> extends Subscribable<Mutation<T>> {
     add(values: T | Mutation<T>): void;
     reset(items: T[]): void;
     call(fn: (items: T[]) => any): void;
