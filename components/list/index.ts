@@ -10,7 +10,7 @@ export type Mutation<T = unknown> =
     | MoveItem
     | RemoveItem
     | ResetItems<T>
-    | CallItems<T>;
+    | PeekItems<T>;
 interface PushItem<T> {
     type: 'push';
     values: T;
@@ -68,14 +68,14 @@ export function reset<T>(items: { key: any; values: T }[]): ResetItems<T> {
     };
 }
 
-interface CallItems<T> {
-    type: 'call';
+interface PeekItems<T> {
+    type: 'peek';
     func: (items: T[]) => void;
 }
 
-export function call<T>(func: (items: T[]) => void): CallItems<T> {
+export function peek<T>(func: (items: T[]) => void): PeekItems<T> {
     return {
-        type: 'call',
+        type: 'peek',
         func,
     };
 }
@@ -144,8 +144,10 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
                     applyReset(m.items);
                 } else if (m.type === 'move') {
                     // TODO implement!
-                    debugger;
-                } else if (m.type === 'call') {
+                    const tmp = items[m.from];
+                    items[m.from] = items[m.to];
+                    items[m.to] = tmp;
+                } else if (m.type === 'peek') {
                     m.func(items.map((x) => x.values));
                 } else {
                     console.error('not a mutation ', m);
@@ -240,7 +242,7 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
 export interface ListSource<T> extends Subscribable<Mutation<T>> {
     add(values: T | Mutation<T>): void;
     reset(items: T[]): void;
-    call(fn: (items: T[]) => any): void;
+    peek(fn: (items: T[]) => any): void;
 }
 
 interface ContainerItem<T> {

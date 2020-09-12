@@ -1,6 +1,6 @@
 import * as Rx from 'rxjs';
 import * as Ro from 'rxjs/operators';
-import { ListSource, Mutation, call } from './index';
+import { ListSource, Mutation, peek } from './index';
 
 export function createListSource<T, K>(
     snapshot: T[],
@@ -10,8 +10,8 @@ export function createListSource<T, K>(
     const mutations = new Rx.Subject<Mutation<T>>();
 
     return {
-        call(fn: (items: T[]) => any) {
-            applyMutation(call(fn));
+        peek(fn: (items: T[]) => any) {
+            applyMutation(peek(fn));
         },
         reset(items: T[]) {
             applyMutation(resetMutation(items));
