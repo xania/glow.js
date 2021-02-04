@@ -82,7 +82,7 @@ export function peek<T>(func: (items: T[]) => void): PeekItems<T> {
 
 type ItemTemplate<T> = (key, values: T, index: () => number) => ITemplate[];
 interface ListProps<T> {
-    source: ListSource<T>;
+    source: ListSource<T> | T[];
 }
 export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
     const { source } = props;
@@ -93,10 +93,14 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
         function dispose() {
             const idx = index();
             if (idx >= 0) {
-                source.add({
-                    type: 'remove',
-                    key,
-                });
+                if (Array.isArray(source)) {
+                    source.splice(idx, 1);
+                } else {
+                    source.add({
+                        type: 'remove',
+                        key,
+                    });
+                }
             }
         }
     }
@@ -106,23 +110,33 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
             const items: ContainerItem<T>[] = [];
             const { source } = props;
             const rootScope = driver.createScope();
-
-            return [
-                source.subscribe(applyMutation),
-                {
-                    dispose() {
-                        for (const item of items) {
-                            const { scope, bindings } = item;
-                            for (const binding of bindings) {
-                                if (binding.dispose) {
-                                    binding.dispose();
-                                }
+            const disposable = {
+                dispose() {
+                    for (const item of items) {
+                        const { scope, bindings } = item;
+                        for (const binding of bindings) {
+                            if (binding.dispose) {
+                                binding.dispose();
                             }
-                            scope.dispose();
                         }
-                    },
+                        scope.dispose();
+                    }
                 },
-            ];
+            };
+
+            if (Array.isArray(source)) {
+                for (let i = 0; i < source.length; i++) {
+                    applyMutation({
+                        type: 'insert',
+                        index: i,
+                        key: i,
+                        values: source[i],
+                    });
+                }
+                return disposable;
+            } else {
+                return [source.subscribe(applyMutation), disposable];
+            }
 
             function applyMutation(m: Mutation<T>) {
                 if (m.type === 'push') {

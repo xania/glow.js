@@ -114,9 +114,7 @@ function hasProperty<P extends string>(
 export default tpl;
 
 export class FragmentTemplate implements ITemplate {
-    constructor(public children?: ITemplate[]) {
-        debugger;
-    }
+    constructor(public children?: ITemplate[]) {}
 
     render(driver: IDriver) {
         return {

@@ -2,14 +2,21 @@ import * as Rx from 'rxjs';
 import * as Ro from 'rxjs/operators';
 import { ListSource, Mutation, peek } from './index';
 
+type ArrayListSource<T> = ListSource<T> & {
+    readonly length: number;
+};
+
 export function createListSource<T, K>(
     snapshot: T[],
     keySelector: (t: T) => K
     //     updatable: Expression<T[]> & Updatable<T[]>
-): ListSource<T> {
+): ArrayListSource<T> {
     const mutations = new Rx.Subject<Mutation<T>>();
 
     return {
+        get length() {
+            return snapshot.length;
+        },
         peek(fn: (items: T[]) => any) {
             applyMutation(peek(fn));
         },
