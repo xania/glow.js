@@ -465,7 +465,7 @@ function isInitializable(obj: any): obj is Initializable {
 }
 
 export function renderMany(driver: IDriver, children: ITemplate[]): Binding[] {
-    var stack = children.map((template) => ({
+    var stack = children.reverse().map((template) => ({
         driver,
         template,
     }));
