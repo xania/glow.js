@@ -86,7 +86,11 @@ export function flatTree<T = any>(
     if (!Array.isArray(tree)) return [];
 
     var retval: T[] = [];
-    var stack = tree.reverse();
+    var stack = [];
+    // copy tree to stack reverse order
+    for (let i = tree.length - 1; i >= 0; i--) {
+        stack.push(tree[i]);
+    }
 
     while (stack.length > 0) {
         var curr = stack.pop();
