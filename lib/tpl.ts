@@ -44,9 +44,7 @@ export function tpl(
     }
 
     if (typeof name === 'function') {
-        return asTemplate(
-            construct(name, [props, children]) || name(props, children)
-        );
+        return construct(name, [props, children]) || name(props, children);
     }
 
     return asTemplate(name);
