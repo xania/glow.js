@@ -93,7 +93,7 @@ export function flatTree<T = any>(
     while (stack.length > 0) {
         var curr = stack.pop();
         if (Array.isArray(curr)) {
-            stack.push.apply(stack, curr.reverse());
+            stack.push.apply(stack, reverse(curr));
         } else if (curr !== null && curr !== undefined) {
             const projected = project(curr);
             if (Array.isArray(projected)) {
@@ -403,8 +403,9 @@ type StackItem = {
     driver: IDriver;
     template: ITemplate | ITemplate[] | (() => any);
 };
-export function renderStack(stack: StackItem[]) {
+export function renderStack(roots: StackItem[]) {
     const bindings: Binding[] = [];
+    const stack = roots.slice(0);
 
     while (stack.length) {
         const curr = stack.pop();
@@ -467,10 +468,25 @@ function isInitializable(obj: any): obj is Initializable {
 }
 
 export function renderMany(driver: IDriver, children: ITemplate[]): Binding[] {
-    var stack = children.reverse().map((template) => ({
-        driver,
-        template,
-    }));
+    const stack = [];
+
+    for (let i = children.length - 1; i >= 0; i--) {
+        const template = children[i];
+        stack.push({
+            driver,
+            template,
+        });
+    }
 
     return renderStack(stack);
+}
+
+function reverse<T>(arr: T[]): T[] {
+    const result: T[] = [];
+
+    for (let i = arr.length - 1; i >= 0; i--) {
+        result.push(arr[i]);
+    }
+
+    return result;
 }
