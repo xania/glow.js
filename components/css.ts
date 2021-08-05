@@ -27,7 +27,7 @@ export default function Css(props: CssProps) {
 }
 
 interface AttrProps {
-    value: string;
+    value: any;
     name: string;
     when?: Subscribable<boolean>;
 }

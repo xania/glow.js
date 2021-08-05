@@ -1,94 +1,23 @@
 import { ITemplate, IDriver, Binding, disposeMany } from '../../lib/driver';
 import { renderStack } from '../../lib/tpl';
 import { flatTree } from './helpers';
-import { Subscribable } from 'rxjs';
+import * as M from '../../../mutabl.js';
+import { asProxy, isExpression, Value } from '../../../mutabl.js';
 
 type Disposable = { dispose(): any };
-export type Mutation<T = unknown> =
-    | PushItem<T>
-    | InsertItem<T>
-    | MoveItem
-    | RemoveItem
-    | ResetItems<T>
-    | PeekItems<T>;
-interface PushItem<T> {
-    type: 'push';
-    values: T;
-    key;
-}
-
-interface MoveItem {
-    type: 'move';
-    from: number;
-    to: number;
-}
-
-export function push<T>(key, values: T): PushItem<T> {
-    return {
-        type: 'push',
-        values,
-        key,
-    };
-}
-interface InsertItem<T> {
-    type: 'insert';
-    values: T;
-    key;
-    index: number;
-}
-
-export function insert<T>(key, values: T, index: number): InsertItem<T> {
-    return {
-        type: 'insert',
-        values,
-        key,
-        index,
-    };
-}
-interface RemoveItem {
-    type: 'remove';
-    key: any;
-}
-export function remove(key): RemoveItem {
-    return {
-        type: 'remove',
-        key,
-    };
-}
-
-interface ResetItems<T> {
-    type: 'reset';
-    items: { key: any; values: T }[];
-}
-
-export function reset<T>(items: { key: any; values: T }[]): ResetItems<T> {
-    return {
-        type: 'reset',
-        items,
-    };
-}
-
-interface PeekItems<T> {
-    type: 'peek';
-    func: (items: T[]) => void;
-}
-
-export function peek<T>(func: (items: T[]) => void): PeekItems<T> {
-    return {
-        type: 'peek',
-        func,
-    };
-}
 
 type ItemTemplate<T> = (key, values: T, index: () => number) => ITemplate[];
 interface ListProps<T> {
-    source: ListSource<T> | T[];
+    source: M.ListSource<T> | T[];
 }
 export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
     const { source } = props;
 
     function itemTemplate(values: T, key, index: () => number) {
-        return flatTree(_children, [values, { key, index, dispose }]);
+        return flatTree(_children, [
+            isExpression(values) ? asProxy(values) : values,
+            { key, index, dispose },
+        ]);
 
         function dispose() {
             const idx = index();
@@ -98,7 +27,7 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
                 } else {
                     source.add({
                         type: 'remove',
-                        key,
+                        predicate: x => x == values,
                     });
                 }
             }
@@ -129,7 +58,6 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
                     applyMutation({
                         type: 'insert',
                         index: i,
-                        key: i,
                         values: source[i],
                     });
                 }
@@ -138,15 +66,19 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
                 return [source.subscribe(applyMutation), disposable];
             }
 
-            function applyMutation(m: Mutation<T>) {
+            function applyMutation(m: M.ListMutation<T>) {
                 if (m.type === 'push') {
-                    const { key, values } = m;
-                    applyInsert(key, values, items.length);
+                    const { values } = m;
+                    applyInsert(values, items.length);
                 } else if (m.type === 'insert') {
-                    const { key, values, index } = m;
-                    applyInsert(key, values, index);
+                    const { values, index } = m;
+                    applyInsert(values, index);
                 } else if (m.type === 'remove') {
-                    const idx = items.findIndex((x) => x.key === m.key);
+                    const idx =
+                        typeof m.predicate === 'number'
+                            ? m.predicate
+                            : items.findIndex(containerPredicate(m.predicate));
+                    // const idx = items.findIndex((ci) => m.predicate(ci.values));
                     if (idx >= 0) {
                         const item = items[idx];
                         const { scope, bindings } = item;
@@ -161,27 +93,23 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
                     const tmp = items[m.from];
                     items[m.from] = items[m.to];
                     items[m.to] = tmp;
-                } else if (m.type === 'peek') {
-                    m.func(items.map((x) => x.values));
                 } else {
                     console.error('not a mutation ', m);
                 }
 
-                function applyInsert(key: any, values: T, idx: number) {
+                function applyInsert(values: T, idx: number) {
                     const itemScope = rootScope.createScope(idx);
-                    const bindings = renderStack(
-                        flatTree([itemTemplate], [values, key, index])
-                            .map((template) => ({
-                                driver: itemScope,
-                                template,
-                            }))
-                            .reverse()
-                    );
                     const item: ContainerItem<T> = {
                         scope: itemScope,
-                        bindings,
                         values,
-                        key,
+                        bindings: renderStack(
+                            flatTree([itemTemplate], [values, index])
+                                .map(template => ({
+                                    driver: itemScope,
+                                    template,
+                                }))
+                                .reverse()
+                        ),
                     };
                     items.splice(idx, 0, item);
 
@@ -196,25 +124,14 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
                     }
                 }
 
-                function applyReset(pairs: { key: any; values: T }[]) {
-                    // while (items.length) {
-                    //     const { scope, bindings } = items.pop();
-                    //     scope.dispose();
-                    //     disposeMany(bindings);
-                    // }
-
-                    // for (let i = 0; i < m.items.length; i++) {
-                    //     applyInsert(m.items[i], i);
-                    // }
-
+                function applyReset(newItems: T[]) {
                     for (let i = 0; i < items.length; i++) {
                         // for (const snap of items) {
                         const snap = items[i];
                         const { values, scope, bindings } = snap;
-
                         if (values) {
-                            const idx = pairs.findIndex(
-                                (x) => x.key == snap.key
+                            const idx = newItems.findIndex(
+                                x => x === snap.values
                             );
                             if (idx < 0) {
                                 scope.dispose();
@@ -224,27 +141,26 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
                             }
                         }
                     }
-
-                    for (let i = 0; i < pairs.length; i++) {
-                        const { key, values } = pairs[i];
-                        const n = items.findIndex((src) => src.key == key);
-
-                        if (n < 0) {
+                    for (let i = 0; i < newItems.length; i++) {
+                        const values = newItems[i];
+                        const index = items.findIndex(
+                            ci => ci.values === values
+                        );
+                        if (index < 0) {
                             applyMutation({
                                 type: 'insert',
                                 index: i,
                                 values,
-                                key,
                             });
-                        } else if (n != i) {
-                            items[n].values = values;
+                        } else if (index != i) {
+                            // items[n].update(values);
                             applyMutation({
                                 type: 'move',
-                                from: n,
+                                from: index,
                                 to: i,
                             });
                         } else {
-                            items[n].values = values;
+                            // items[n].update(values);
                         }
                     }
                 }
@@ -253,20 +169,17 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
     };
 }
 
-export interface ListSource<T> extends Subscribable<Mutation<T>> {
-    add(values: T | Mutation<T>): void;
-    reset(items: T[]): void;
-    peek(fn: (items: T[]) => any): void;
-}
-
 interface ContainerItem<T> {
     bindings: Binding[];
     scope: Disposable;
     values: T;
-    key: any;
 }
 
 export interface ContainerItemContext {
     dispose(): any;
     index: () => number;
+}
+
+function containerPredicate<T>(filter: (t: T) => boolean) {
+    return (ci: ContainerItem<T>) => filter(ci.values);
 }

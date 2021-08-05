@@ -17,6 +17,10 @@ declare type Func<T> = (arg: T) => any;
 declare type Attachable = {
     attachTo: (dom: HTMLElement) => { dispose(): any };
 };
+export declare type Component = {
+    view: any;
+    dispose?(): void;
+};
 
 type TemplateElement =
     | Primitive
@@ -148,6 +152,24 @@ class TemplateAttachable implements ITemplate {
         return this.attachable.attachTo(driver.target);
     }
 }
+
+class TemplateComponent implements ITemplate {
+    constructor(private component: Component) {}
+
+    render(driver: DomDriver) {
+        const { component } = this;
+        const template = asTemplate(component.view);
+        const bindings = render(driver, template);
+
+        return {
+            dispose() {
+                if (typeof component.dispose === 'function')
+                    component.dispose();
+                disposeMany(bindings);
+            },
+        };
+    }
+}
 class TemplateSubscription implements ITemplate {
     constructor(private subscription: Subscription) {}
 
@@ -251,6 +273,7 @@ export function asTemplate(name: any): ITemplate | ITemplate[] {
     if (typeof name === 'undefined' || name === null) {
         return __emptyTemplate;
     } else if (isTemplate(name)) return name;
+    else if (isComponent(name)) return new TemplateComponent(name);
     else if (isAttachable(name)) return new TemplateAttachable(name);
     else if (typeof name === 'function') return name;
     else if (Array.isArray(name)) return flatTree(name, asTemplate);
@@ -260,6 +283,10 @@ export function asTemplate(name: any): ITemplate | ITemplate[] {
     else if (hasProperty(name, 'view')) return asTemplate(name.view);
 
     return new NativeTemplate(name);
+}
+
+function isComponent(value: any): value is Component {
+    return value && typeof value.view === 'function';
 }
 
 function isAttachable(value: any): value is Attachable {

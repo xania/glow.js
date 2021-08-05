@@ -84,6 +84,7 @@ interface Leaf {
     insertBefore(node: Comment | HTMLElement): any;
     dispose(): void;
 }
+
 export type Component = Leaf | Parent;
 
 function isParent(node: any): node is Parent {
@@ -92,12 +93,12 @@ function isParent(node: any): node is Parent {
     return false;
 }
 
-export function referenceNode(root: Parent, component: Component) {
+export function referenceNode(root: Parent, node: Component) {
     const stack: Component[] = [root];
     let found = false;
     while (stack.length) {
         const curr = stack.pop();
-        if (curr === component) {
+        if (curr === node) {
             found = true;
         } else if (isParent(curr)) {
             const _children = curr[children];

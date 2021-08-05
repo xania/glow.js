@@ -1,7 +1,7 @@
 import { IDriver } from '../lib/driver';
 
 interface EventProps {
-    callback: () => any;
+    callback: (e) => any;
 }
 export function Event(props: EventProps & { name: string }) {
     const { name, callback } = props;
@@ -13,6 +13,18 @@ export function Event(props: EventProps & { name: string }) {
     };
 }
 
-export const Click = (props: EventProps) => Event({ name: 'click', ...props });
-export const Blur = (props: EventProps) => Event({ name: 'blur', ...props });
-export const KeyUp = (props: EventProps) => Event({ name: 'keyup', ...props });
+function createEvent(name: string, callback: EventProps['callback']) {
+    return Event({ name, callback });
+}
+
+export const Click = (props: EventProps) =>
+    createEvent('click', props.callback);
+export const Blur = (props: EventProps) => createEvent('click', props.callback);
+export const KeyUp = (props: EventProps) =>
+    createEvent('click', props.callback);
+export const MouseEnter = (props: EventProps) =>
+    createEvent('click', props.callback);
+export const Focus = (props: EventProps) =>
+    createEvent('click', props.callback);
+export const MouseLeave = (props: EventProps) =>
+    createEvent('click', props.callback);

@@ -455,6 +455,10 @@ function createAttribute(
                     12
                 );
             } else target.value = value;
+
+            return true;
+        } else {
+            return defaultAttribute(value);
         }
     }
 
@@ -509,7 +513,7 @@ export function isDomNode(obj: any): obj is HTMLElement {
 }
 
 function isInputElement(elt: any): elt is HTMLInputElement {
-    return elt && elt.value && elt.type;
+    return elt && 'value' in elt && 'type' in elt;
 }
 
 function isDisabled(target: HTMLElement, value: any) {
