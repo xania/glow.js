@@ -14,8 +14,7 @@
         "start": "tsdx watch",
         "build": "tsdx build",
         "test": "tsdx test",
-        "lint": "tsdx lint",
-        "prepare": "tsdx build"
+        "lint": "tsdx lint"
     },
     "husky": {
         "hooks": {
@@ -27,7 +26,7 @@
         "semi": true,
         "singleQuote": true,
         "trailingComma": "es5",
-        "tabWidth": 4
+        "tabWidth": 2
     },
     "name": "glow.js",
     "author": "xania",
