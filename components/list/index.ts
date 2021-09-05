@@ -13,10 +13,10 @@ interface ListProps<T> {
 export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
   const { source } = props;
 
-  function itemTemplate(values: T, key, index: () => number) {
+  function itemTemplate(values: T, index: () => number) {
     return flatTree(_children, [
       isExpression(values) ? asProxy(values) : values,
-      { key, index, dispose },
+      { index, dispose },
     ]);
 
     function dispose() {
