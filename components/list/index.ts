@@ -1,14 +1,14 @@
 import { ITemplate, IDriver, Binding, disposeMany } from '../../lib/driver';
 import { renderStack } from '../../lib/tpl';
 import { flatTree } from './helpers';
-import * as M from '../../../mutabl.js';
-import { asProxy, isExpression, Value } from '../../../mutabl.js';
+import { asProxy, isExpression } from 'mutabl.js';
+import { ListMutation, ListStore } from 'mutabl.js';
 
 type Disposable = { dispose(): any };
 
 type ItemTemplate<T> = (key, values: T, index: () => number) => ITemplate[];
 interface ListProps<T> {
-  source: M.ListStore<T> | T[];
+  source: ListStore<T> | T[];
 }
 export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
   const { source } = props;
@@ -63,10 +63,10 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
         }
         return disposable;
       } else {
-        return [source.subscribe(applyMutation), disposable];
+        return [source.subscribe({ next: applyMutation }), disposable];
       }
 
-      function applyMutation(m: M.ListMutation<T>) {
+      function applyMutation(m: ListMutation<T>) {
         if (m.type === 'push') {
           const { values } = m;
           applyInsert(values, items.length);
@@ -75,9 +75,9 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
           applyInsert(values, index);
         } else if (m.type === 'remove') {
           const idx =
-            typeof m.predicate === 'number'
-              ? m.predicate
-              : items.findIndex(containerPredicate(m.predicate));
+            'predicate' in m
+              ? items.findIndex(containerPredicate(m.predicate))
+              : m.index;
           // const idx = items.findIndex((ci) => m.predicate(ci.values));
           if (idx >= 0) {
             const item = items[idx];

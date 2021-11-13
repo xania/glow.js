@@ -18,11 +18,13 @@ export function combineLatest<T extends any[]>(expressions: T) {
       for (let i = 0; i < expressions.length; i++) {
         const expr = expressions[i];
         if (isSubscribable(expr)) {
-          const subscr = expr.subscribe(v => {
-            if (state[i] !== v) {
-              state[i] = v;
-              emit();
-            }
+          const subscr = expr.subscribe({
+            next: (v) => {
+              if (state[i] !== v) {
+                state[i] = v;
+                emit();
+              }
+            },
           });
           subscriptions.push(subscr);
         } else {

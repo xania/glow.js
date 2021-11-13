@@ -13,9 +13,11 @@ export default function Css(props: CssProps) {
       if (when && typeof when.subscribe === 'function') {
         const binding = driver.createAttribute('class', undefined);
 
-        when.subscribe((e) => {
-          if (e) binding.next(value);
-          else binding.next([]);
+        when.subscribe({
+          next: (e) => {
+            if (e) binding.next(value);
+            else binding.next([]);
+          },
         });
 
         return binding;
@@ -38,9 +40,11 @@ export function Attr(props: AttrProps) {
       if (when && typeof when.subscribe === 'function') {
         const binding = driver.createAttribute(name, undefined);
 
-        when.subscribe((e) => {
-          if (e) binding.next(value);
-          else binding.next([]);
+        when.subscribe({
+          next: (e) => {
+            if (e) binding.next(value);
+            else binding.next([]);
+          },
         });
 
         return binding;
