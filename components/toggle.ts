@@ -1,5 +1,5 @@
 import { IDriver } from '../lib/driver';
-import { Subscribable } from 'rxjs';
+import { Subscribable } from '../lib/util/rxjs';
 
 interface ToggleProps {
   value: Updatable<boolean> & Subscribable<boolean>;
@@ -14,11 +14,14 @@ export default function Toggle(props: ToggleProps) {
       if (typeof className === 'string' && className) {
         const binding = driver.createAttribute('class', undefined);
         return [
-          driver.createEvent('click', () => value.update((e) => !e)),
+          driver.createEvent('click', () => value.update((e: boolean) => !e)),
           value.subscribe({ next: (e) => binding.next(!!e && className) }),
           binding,
         ];
-      } else return driver.createEvent('click', () => value.update((e) => !e));
+      } else
+        return driver.createEvent('click', () =>
+          value.update((e: boolean) => !e)
+        );
     },
   };
 }

@@ -12,7 +12,7 @@ import {
   renderMany,
   flatTree,
 } from '../lib/tpl';
-import * as Rx from 'rxjs';
+import * as Rx from '../lib/util/rxjs';
 
 export default function If(
   props: { condition: BindingValue<boolean> },

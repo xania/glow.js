@@ -1,4 +1,4 @@
-import { Subscribable, PartialObserver, Unsubscribable } from 'rxjs';
+import { Subscribable, NextObserver, Unsubscribable } from './rxjs';
 
 type Action<T> = (value: T) => void;
 type ExpressionType<T> = T extends Subscribable<infer U> ? U : T;
@@ -11,7 +11,7 @@ export type UnpackSubscribables<T> = {
 export function combineLatest<T extends any[]>(expressions: T) {
   type U = UnpackSubscribables<T>;
   return {
-    subscribe(observer: PartialObserver<U> | Action<U>) {
+    subscribe(observer: NextObserver<U> | Action<U>) {
       const state = new Array(expressions.length) as U;
       const subscriptions: Unsubscribable[] = [];
 
@@ -19,7 +19,7 @@ export function combineLatest<T extends any[]>(expressions: T) {
         const expr = expressions[i];
         if (isSubscribable(expr)) {
           const subscr = expr.subscribe({
-            next: (v) => {
+            next(v: unknown) {
               if (state[i] !== v) {
                 state[i] = v;
                 emit();

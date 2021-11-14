@@ -1,4 +1,4 @@
-import * as Rx from 'rxjs';
+import { NextObserver } from './rxjs';
 
 interface Updatable {
   update(value: any): boolean;
@@ -11,7 +11,7 @@ export function isUpdatable(binding: any): binding is Updatable {
   return typeof binding.update === 'function';
 }
 
-export function isNextObserver(binding: any): binding is Rx.NextObserver<any> {
+export function isNextObserver(binding: any): binding is NextObserver<any> {
   if (binding === null) return false;
   if (typeof binding !== 'object') return false;
 

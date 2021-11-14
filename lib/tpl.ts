@@ -9,7 +9,7 @@ import {
 } from './driver';
 import { isDomNode, DomDriver } from './dom';
 import { isNextObserver } from '../lib/util/helpers';
-import { Subscribable, Observer, Subscription } from 'rxjs';
+import { Subscribable, Observer, Unsubscribable } from './util/rxjs';
 import { combineLatest } from './util/combineLatest';
 
 declare type PureComponent = (...args: any) => any;
@@ -170,7 +170,7 @@ class TemplateComponent implements ITemplate {
   }
 }
 class TemplateSubscription implements ITemplate {
-  constructor(private subscription: Subscription) {}
+  constructor(private subscription: Unsubscribable) {}
 
   dispose() {
     return this.subscription.unsubscribe();
@@ -189,7 +189,7 @@ export class TemplateObservable<T> implements ITemplate {
     let bindings: null | Binding[] = null;
     const scope = driver.createScope();
     const subscr = observable.subscribe({
-      next: (value) => {
+      next(value: unknown) {
         if (bindings && bindings.length === 1 && isPrimitive(value)) {
           const binding = bindings[0];
           if (isNextObserver(binding)) {
@@ -280,7 +280,7 @@ export function asTemplate(name: any): ITemplate | ITemplate[] {
   else if (Array.isArray(name)) return flatTree(name, asTemplate);
   else if (isPromise<TemplateInput>(name)) return new TemplatePromise(name);
   else if (isSubscribable(name)) return new TemplateObservable(name);
-  else if (isSubscription(name)) return new TemplateSubscription(name);
+  else if (isUnsubscribable(name)) return new TemplateSubscription(name);
   else if (hasProperty(name, 'view')) return asTemplate(name.view);
 
   return new NativeTemplate(name);
@@ -298,7 +298,7 @@ function isSubscribable(value: any): value is Subscribable<unknown> {
   return value && typeof value.subscribe === 'function';
 }
 
-function isSubscription(value: any): value is Subscription {
+function isUnsubscribable(value: any): value is Unsubscribable {
   return value && typeof value.unsubscribe === 'function';
 }
 

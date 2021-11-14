@@ -235,7 +235,7 @@ export class DomDriver implements IDriver {
       }
     }
 
-    delete this[children];
+    // delete this[children];
   }
 }
 
@@ -325,7 +325,7 @@ function createScope(root: DomDriver, parent: Parent) {
       removeComponent(parent, scope);
       // deliberately use the children array instance instead of cloning it.
       // disposeChildren(scope[children]);
-      delete scope[children]; // mark as disposed
+      // delete scope[children]; // mark as disposed
     },
   };
 

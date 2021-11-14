@@ -1,5 +1,5 @@
 import { IDriver } from '../lib/driver';
-import { Subscribable } from 'rxjs';
+import { Subscribable } from '../lib/util/rxjs';
 
 interface CssProps {
   value: string;
