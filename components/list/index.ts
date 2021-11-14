@@ -1,8 +1,8 @@
 import { ITemplate, IDriver, Binding, disposeMany } from '../../lib/driver';
 import { renderStack } from '../../lib/tpl';
 import { flatTree } from './helpers';
-// import { asProxy, isExpression } from 'mutabl.js';
-// import { ListMutation, ListStore } from 'mutabl.js';
+import { asProxy, isExpression } from 'mutabl.js';
+import { ListMutation, ListStore } from 'mutabl.js';
 
 type Disposable = { dispose(): any };
 
@@ -12,19 +12,27 @@ type ItemTemplate<T> = (
   index: () => number
 ) => ITemplate[];
 interface ListProps<T> {
-  source: T[];
+  source: ListStore<T> | T[];
 }
 export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
   const { source } = props;
 
   function itemTemplate(values: T, index: () => number) {
-    return flatTree(_children, [values, { index, dispose }]);
+    return flatTree(_children, [
+      isExpression(values) ? asProxy(values) : values,
+      { index, dispose },
+    ]);
 
     function dispose() {
       const idx = index();
       if (idx >= 0) {
         if (Array.isArray(source)) {
           source.splice(idx, 1);
+        } else {
+          source.add({
+            type: 'remove',
+            predicate: (x: unknown) => x == values,
+          });
         }
       }
     }
@@ -49,16 +57,20 @@ export function List<T>(props: ListProps<T>, _children: ItemTemplate<T>[]) {
         },
       };
 
-      for (let i = 0; i < source.length; i++) {
-        applyMutation({
-          type: 'insert',
-          index: i,
-          values: source[i],
-        });
+      if (Array.isArray(source)) {
+        for (let i = 0; i < source.length; i++) {
+          applyMutation({
+            type: 'insert',
+            index: i,
+            values: source[i],
+          });
+        }
+        return disposable;
+      } else {
+        return [source.subscribe({ next: applyMutation }), disposable];
       }
-      return disposable;
 
-      function applyMutation(m: any) {
+      function applyMutation(m: ListMutation<T>) {
         if (m.type === 'push') {
           const { values } = m;
           applyInsert(values, items.length);
