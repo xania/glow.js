@@ -2,24 +2,19 @@ const fspath = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = (env, argv) => {
-  const isDevelopment = !argv.mode || argv.mode === 'development';
-  const config = buildConfig(isDevelopment);
-  if (isDevelopment) {
-    console.log('development: ' + isDevelopment);
-    return {
-      ...config,
-      mode: 'development',
-      devtool: 'inline-source-map',
-    };
-  }
-  return config;
+  const config = buildConfig();
+  return {
+    ...config,
+    mode: 'development',
+    devtool: 'source-map',
+  };
 };
 
-function buildConfig(isDevelopment) {
+function buildConfig() {
   return {
     target: 'web',
     entry: ['./lib/public-api.ts'],
-    mode: isDevelopment ? 'development' : 'production',
+    mode: 'development',
     module: {
       rules: [
         {
@@ -52,7 +47,7 @@ function buildConfig(isDevelopment) {
             {
               loader: 'css-loader',
               options: {
-                sourceMap: isDevelopment,
+                sourceMap: true,
               },
             },
             {
