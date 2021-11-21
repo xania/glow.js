@@ -81,19 +81,9 @@ function construct(func: Function, args: any[]) {
   }
 }
 
-export function flatTree<T = any>(
-  tree: any[],
-  project: (item: any) => T | T[]
-) {
-  if (!Array.isArray(tree)) return [];
-
+export function flatTree<T = any>(tree: any, project: (item: any) => T | T[]) {
   var retval: T[] = [];
-  var stack = [];
-  // copy tree to stack reverse order
-  for (let i = tree.length - 1; i >= 0; i--) {
-    stack.push(tree[i]);
-  }
-
+  var stack = [tree];
   while (stack.length > 0) {
     var curr = stack.pop();
     if (Array.isArray(curr)) {
