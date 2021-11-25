@@ -6,7 +6,7 @@ interface CssProps {
   when?: Subscribable<boolean>;
 }
 
-export default function Css(props: CssProps) {
+export function Css(props: CssProps) {
   return {
     render(driver: IDriver) {
       const { when, value } = props;

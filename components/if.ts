@@ -14,7 +14,7 @@ import {
 } from '../lib/tpl';
 import * as Rx from '../lib/util/rxjs';
 
-export default function If(
+export function If(
   props: { condition: BindingValue<boolean> },
   children: ITemplate[]
 ) {

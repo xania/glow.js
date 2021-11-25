@@ -6,7 +6,7 @@ interface ToggleProps {
   class?: string;
 }
 
-export default function Toggle(props: ToggleProps) {
+export function Toggle(props: ToggleProps) {
   const { value, class: className } = props;
 
   return {
