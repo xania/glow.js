@@ -1,19 +1,14 @@
 const fspath = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
-module.exports = (env, argv) => {
-  const config = buildConfig();
-  return {
-    ...config,
-    mode: 'development',
-    devtool: 'source-map',
-  };
+module.exports = (_, argv) => {
+  return [createConfig('commonjs2'), createConfig('umd')];
 };
 
-function buildConfig() {
+function createConfig(outputType) {
   return {
     target: 'web',
-    entry: ['./lib/public-api.ts'],
+    entry: ['./lib/index.ts'],
     mode: 'development',
     module: {
       rules: [
@@ -33,7 +28,6 @@ function buildConfig() {
               },
             },
             { loader: 'extract-loader' },
-            // { loader: "style-loader" },
             {
               loader: MiniCssExtractPlugin.loader,
               options: {
@@ -85,11 +79,11 @@ function buildConfig() {
       extensions: ['.tsx', '.ts', '.js', '.scss', '.css'],
     },
     output: {
-      filename: '[name].esm.js',
+      filename: '[name].' + outputType + '.js',
       path: fspath.resolve(__dirname, 'dist'),
       library: {
-        name: '[name]',
-        type: 'commonjs2',
+        name: 'Glow',
+        type: outputType,
       },
     },
     // optimization: {
@@ -100,8 +94,6 @@ function buildConfig() {
     // },
     plugins: [
       new MiniCssExtractPlugin({
-        // Options similar to the same options in webpackOptions.output
-        // all options are optional
         filename: '[name].[chunkhash:8].css',
         chunkFilename: '[id].css',
         ignoreOrder: false, // Enable to remove warnings about conflicting order

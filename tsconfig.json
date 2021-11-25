@@ -1,12 +1,12 @@
 {
-    "include": ["lib", "types"],
+    "include": ["lib", "dist/types"],
     "compilerOptions": {
-        "module": "esnext",
-        "lib": ["dom", "esnext"],
+        "outDir": "dist/esm",
+        "module": "ES2015",
+        "lib": ["dom", "ES2015"],
         "importHelpers": true,
         "declaration": true,
         "sourceMap": true,
-        "rootDir": ".",
         "strict": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
@@ -14,13 +14,14 @@
         "noFallthroughCasesInSwitch": true,
         "moduleResolution": "node",
         "baseUrl": "./",
-        "target": "ESNext",
+        "target": "ES2015",
         "paths": {
-            "*": ["lib/*", "node_modules/*"]
+            "*": ["lib/*", "node_modules/*"],
+            "mutabl.js": ["mutabl.js/lib/index.ts"]
         },
         "jsx": "react",
         "esModuleInterop": true,
-        "typeRoots": ["./types", "./node_modules/@types"],
+        "typeRoots": ["./dist/types", "./node_modules/@types"],
         "declarationDir": "./dist/types"
     }
 }

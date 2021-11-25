@@ -1,4 +1,3 @@
-import { Subscription } from 'rxjs';
 import { NextObserver, Unsubscribable } from '../../lib/util/rxjs';
 
 export type ListMutation<T = unknown> =
@@ -113,9 +112,9 @@ export class ListMutationManager<T> {
 
   subscribe = (observer: NextObserver<ListMutation<T>>): Unsubscribable => {
     if (!observer) {
-      return Subscription.EMPTY;
+      return EMPTY;
     }
-    if (typeof observer.next !== 'function') return Subscription.EMPTY;
+    if (typeof observer.next !== 'function') return EMPTY;
 
     const { mutationObservers } = this;
     mutationObservers.push(observer);
@@ -129,3 +128,7 @@ export class ListMutationManager<T> {
     };
   };
 }
+
+const EMPTY: Unsubscribable = {
+  unsubscribe() {},
+};

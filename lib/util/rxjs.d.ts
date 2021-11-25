@@ -9,7 +9,7 @@ export interface Unsubscribable {
 }
 
 export interface Subscribable<T> {
-  subscribe(observer: Partial<Observer<T>>): Unsubscribable;
+  subscribe(observer: NextObserver<T>): Unsubscribable;
 }
 
 export interface Observer<T> {

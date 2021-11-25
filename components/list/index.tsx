@@ -5,7 +5,7 @@ export interface ListProps<T> {
   source: ListSource<T> | T[];
 }
 
-export function List<T>(props: ListProps<T>, children) {
+export function List<T>(props: ListProps<T>, children: any) {
   const { source } = props;
   if (Array.isArray(source)) {
     return createList({

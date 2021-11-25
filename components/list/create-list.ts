@@ -29,7 +29,7 @@ export function createList<T>(source: ListSource<T>) {
       while (length--) {
         const { store } = listItems[length];
         const { value } = store;
-        if (predicate(value)) {
+        if (value !== undefined && predicate(value)) {
           return store;
         }
       }
@@ -38,8 +38,8 @@ export function createList<T>(source: ListSource<T>) {
     item(index: number) {
       return listItems[index].store;
     },
-    add(mut) {
-      sourceMutationObserver.next(mut);
+    add(mut: ListMutation<T>) {
+      sourceMutationObserver?.next(mut);
       mutations.pushMutation(mut);
     },
     subscribe(observer: NextObserver<ListMutation<T>>): Unsubscribable {

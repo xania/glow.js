@@ -41,10 +41,11 @@ export type Primitive = string | number | boolean | Date;
 export function isPrimitive(value: any): value is Primitive {
   if (value === null || value === undefined) return false;
 
+  const type = typeof value;
   return (
-    typeof value === 'number' ||
-    typeof value === 'string' ||
-    typeof value === 'boolean' ||
+    type === 'number' ||
+    type === 'string' ||
+    type === 'boolean' ||
     value instanceof Date
   );
 }
