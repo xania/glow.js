@@ -6,7 +6,7 @@ import {
   ListMutationType,
 } from './list-mutation';
 import { NextObserver, Unsubscribable } from '../../lib/util/rxjs';
-import { asProxy, digestMany, flush, State, Store } from 'mutabl.js';
+import { asProxy, digestMany, flush, State, Store } from '@xania/mutabl.js';
 import { ListItem } from './list-item';
 import { bindMutationsTo } from './bindMutationsTo';
 import { ListSource } from './list-source';

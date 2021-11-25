@@ -1,4 +1,4 @@
-import { Store } from 'mutabl.js';
+import { Store } from '@xania/mutabl.js';
 
 export interface ListItem<T> {
   store: Store<T>;
