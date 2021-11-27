@@ -38,7 +38,7 @@ export function tpl(
   ...children: any[]
 ): ITemplate | ITemplate[] {
   if (typeof name === 'string') {
-    const flatChildren = flatTree(children, (e) => e);
+    const flatChildren = flatTree(children);
     return new TagTemplate(
       name,
       props
@@ -81,7 +81,7 @@ function construct(func: Function, args: any[]) {
   }
 }
 
-export function flatTree<T = any>(tree: any, project: (item: any) => T | T[]) {
+export function flatTree<T = any>(tree: any, project?: (item: any) => T | T[]) {
   var retval: T[] = [];
   var stack = [tree];
   while (stack.length > 0) {
@@ -89,7 +89,7 @@ export function flatTree<T = any>(tree: any, project: (item: any) => T | T[]) {
     if (Array.isArray(curr)) {
       stack.push.apply(stack, reverse(curr));
     } else if (curr !== null && curr !== undefined) {
-      const projected = project(curr);
+      const projected = project ? project(curr) : curr;
       if (Array.isArray(projected)) {
         retval.push.apply(retval, projected);
       } else if (projected !== undefined && projected !== null) {
@@ -272,6 +272,7 @@ export function asTemplate(name: any): ITemplate | ITemplate[] {
   else if (isSubscribable(name)) return new TemplateObservable(name);
   else if (isUnsubscribable(name)) return new TemplateSubscription(name);
   else if (hasProperty(name, 'view')) return asTemplate(name.view);
+  else if (isPrimitive(name)) return new PrimitiveTemplate(name);
 
   return new NativeTemplate(name);
 }
@@ -336,6 +337,15 @@ class TagTemplate implements ITemplate {
   render(driver: IDriver, init?: Func<any>) {
     let { name } = this;
     return driver.createElement(name, init);
+  }
+}
+
+class PrimitiveTemplate implements ITemplate {
+  constructor(public value: Primitive) {}
+
+  render(driver: IDriver): Binding {
+    let { value } = this;
+    return driver.createNative(value);
   }
 }
 

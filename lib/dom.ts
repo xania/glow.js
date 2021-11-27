@@ -329,11 +329,13 @@ function createScope(root: DomDriver, parent: Parent) {
     },
   };
 
-  function appendChild(node: Comment | HTMLElement) {
+  function appendChild(child: Text | HTMLElement) {
     const refNode = referenceNode(root, scope);
     if (refNode) {
-      refNode.insertBefore(node);
-    } else root.target.appendChild(node);
+      refNode.insertBefore(child);
+    } else {
+      root.target.appendChild(child);
+    }
   }
 
   function addComponent(component: Component) {
