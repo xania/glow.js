@@ -1,7 +1,7 @@
 {
     "include": ["lib", "dist/types"],
     "compilerOptions": {
-        "outDir": "dist/esm",
+        "outDir": "dist/types",
         "module": "ES2015",
         "lib": ["dom", "ES2015"],
         "importHelpers": true,
@@ -17,11 +17,9 @@
         "target": "ES2015",
         "paths": {
             "*": ["lib/*", "node_modules/*"],
-            "mutabl.js": ["mutabl.js/lib/index.ts"]
+            "@xania/mutabl.js": ["../mutabl.js/lib/index.ts"]
         },
         "jsx": "react",
-        "esModuleInterop": true,
-        "typeRoots": ["./dist/types", "./node_modules/@types"],
-        "declarationDir": "./dist/types"
+        "esModuleInterop": true
     }
 }

@@ -88,12 +88,12 @@ export function flatTree<T = any>(tree: any, project?: (item: any) => T | T[]) {
   return retval;
 }
 
-function hasProperty<P extends string>(
-  obj: any,
-  prop: P
-): obj is { [K in P]: any } {
-  return typeof obj === 'object' && obj !== null && prop in obj;
-}
+// function hasProperty<P extends string>(
+//   obj: any,
+//   prop: P
+// ): obj is { [K in P]: any } {
+//   return typeof obj === 'object' && obj !== null && prop in obj;
+// }
 
 export function attributes(props: any | null): Template[] | null {
   if (props)
@@ -163,13 +163,13 @@ export function asTemplate(value: any): Template | Template[] {
   };
 }
 
-function isComponent(value: any): value is Component {
-  return value && typeof value.view === 'function';
-}
+// function isComponent(value: any): value is Component {
+//   return value && typeof value.view === 'function';
+// }
 
-function isAttachable(value: any): value is Attachable {
-  return value && typeof value.attachTo === 'function';
-}
+// function isAttachable(value: any): value is Attachable {
+//   return value && typeof value.attachTo === 'function';
+// }
 
 function isSubscribable(value: any): value is Subscribable<unknown> {
   return value && typeof value.subscribe === 'function';
@@ -183,9 +183,9 @@ function isRenderable(value: any): value is Renderable {
   return value && typeof value.render === 'function';
 }
 
-function isPromise<T = unknown>(value: any): value is Promise<T> {
-  return value && typeof value.then === 'function';
-}
+// function isPromise<T = unknown>(value: any): value is Promise<T> {
+//   return value && typeof value.then === 'function';
+// }
 
 function isTemplate(value: any): value is Template {
   if (!value) return false;
