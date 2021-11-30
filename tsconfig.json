@@ -1,7 +1,7 @@
 {
-    "include": ["lib", "dist/types"],
+    "include": ["lib", "dist/es2015"],
     "compilerOptions": {
-        "outDir": "dist/types",
+        "outDir": "dist/es2015",
         "module": "ES2015",
         "lib": ["dom", "ES2015"],
         "importHelpers": true,
