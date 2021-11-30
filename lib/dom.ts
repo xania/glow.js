@@ -475,18 +475,14 @@ function createAttribute(
   }
 }
 
-function getNamespaceURI(target: HTMLElement, name: string) {
-  return name === 'svg'
-    ? 'http://www.w3.org/2000/svg'
-    : target
-    ? target.namespaceURI
-    : null;
-}
-function createDOMElement(target: HTMLElement, name: string) {
-  const namespaceURI = getNamespaceURI(target, name);
-  const tagNode = document.createElementNS(namespaceURI, name);
-
-  return tagNode;
+export function createDOMElement(target: Element, name: string) {
+  const namespaceURI =
+    name === 'svg'
+      ? 'http://www.w3.org/2000/svg'
+      : target
+      ? target.namespaceURI
+      : null;
+  return document.createElementNS(namespaceURI, name);
 }
 
 function toString(value: any) {

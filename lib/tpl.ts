@@ -11,6 +11,7 @@ import { isDomNode, DomDriver } from './dom';
 import { isNextObserver } from '../lib/util/helpers';
 import { Subscribable, Observer, Unsubscribable } from './util/rxjs';
 import { combineLatest } from './util/combineLatest';
+import { reverse } from './util/reverse';
 
 declare type PureComponent = (...args: any) => any;
 declare type Func<T> = (arg: T) => any;
@@ -507,14 +508,4 @@ export function renderMany(driver: IDriver, children: ITemplate[]): Binding[] {
   }
 
   return renderStack(stack);
-}
-
-function reverse<T>(arr: T[]): T[] {
-  const result: T[] = [];
-
-  for (let i = arr.length - 1; i >= 0; i--) {
-    result.push(arr[i]);
-  }
-
-  return result;
 }
