@@ -6,6 +6,7 @@ import {
 } from '../../components';
 import { flatTree } from '../../lib/tpl';
 import { render } from './render';
+import { compile } from './compile';
 
 export function createList<T>() {
   const mutations = new ListMutationManager<T>();
@@ -13,6 +14,7 @@ export function createList<T>() {
     map(itemTemplate: Template) {
       return {
         render({ target }: { target: Element }) {
+          compile(target.namespaceURI, itemTemplate);
           const subscr = mutations.subscribe(
             createMutationsObserver<T>(target, itemTemplate)
           );

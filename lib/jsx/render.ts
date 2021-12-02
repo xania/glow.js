@@ -35,7 +35,7 @@ export function render(
     switch (child.type) {
       case TemplateType.Tag:
         const { children } = child;
-        const tag = createDOMElement(target, child.name);
+        const tag = createDOMElement(target.namespaceURI, child.name);
 
         let { length } = children;
         target.appendChild(tag);
@@ -122,12 +122,9 @@ export function render(
   return disposables;
 }
 
-export function createDOMElement(target: RenderTarget, name: string) {
-  const namespaceURI =
-    name === 'svg'
-      ? 'http://www.w3.org/2000/svg'
-      : target
-      ? target.namespaceURI
-      : null;
-  return document.createElementNS(namespaceURI, name);
+export function createDOMElement(namespaceURI: string | null, name: string) {
+  return document.createElementNS(
+    name === 'svg' ? 'http://www.w3.org/2000/svg' : namespaceURI,
+    name
+  );
 }
