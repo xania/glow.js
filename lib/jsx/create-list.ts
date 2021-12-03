@@ -14,15 +14,17 @@ export function createList<T>() {
     map(itemTemplate: Template) {
       return {
         render({ target }: { target: Element }) {
-          compile(target.namespaceURI, itemTemplate);
-          const subscr = mutations.subscribe(
-            createMutationsObserver<T>(target, itemTemplate)
-          );
-          return {
-            dispose() {
-              subscr.unsubscribe();
-            },
-          };
+          const result = compile(target.namespaceURI, itemTemplate);
+          result.render(target);
+
+          // const subscr = mutations.subscribe(
+          //   createMutationsObserver<T>(target, itemTemplate)
+          // );
+          // return {
+          //   dispose() {
+          //     subscr.unsubscribe();
+          //   },
+          // };
         },
       };
     },
