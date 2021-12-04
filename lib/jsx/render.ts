@@ -1,5 +1,4 @@
-import { asTemplate, flatTree } from './factory';
-import { Disposable, Template, TemplateType } from './template';
+import { Renderable, Template, TemplateType } from './template';
 
 export interface RenderTarget {
   addEventListener(event: string, handler: EventHandler): void;
@@ -13,11 +12,11 @@ export type EventHandler = { handleEvent(): void };
 
 export function render(
   root: RenderTarget,
-  children: Template | Template[],
-  ...args: any[]
+  children: Template | Template[]
+  // args?: any[]
 ) {
   const stack: [RenderTarget, Template][] = [];
-  const disposables: (Disposable | Disposable[])[] = [];
+  const disposables: ReturnType<Renderable['render']>[] = [];
 
   if (Array.isArray(children)) {
     let { length } = children;
@@ -100,21 +99,13 @@ export function render(
       case TemplateType.DOM:
         target.appendChild(child.node);
         break;
-      case TemplateType.Function:
-        try {
-          for (const x of flatTree(child.func.apply(null, args), asTemplate))
-            stack.push([target, x]);
-        } catch (e) {
-          console.error(e);
-        }
-        break;
       case TemplateType.Renderable:
         addDisposables(child.renderer.render({ target }));
         break;
     }
   }
 
-  function addDisposables(result: Disposable | Disposable[] | void) {
+  function addDisposables(result: ReturnType<Renderable['render']>) {
     if (result) {
       disposables.push(result);
     }

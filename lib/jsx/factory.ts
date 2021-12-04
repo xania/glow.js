@@ -1,7 +1,8 @@
 import { Subscribable, Observer, Unsubscribable } from '../util/rxjs';
-import { Template, TemplateType } from './template';
+import { RenderableTemplate, Template, TemplateType } from './template';
 import { reverse } from '../util/reverse';
 import { Renderable } from './template';
+import { compile } from './compile';
 
 declare type Attachable = {
   attachTo: (dom: HTMLElement) => { dispose(): any };
@@ -143,10 +144,7 @@ export function asTemplate(value: any): Template | Template[] {
       node: value,
     };
   else if (typeof value === 'function') {
-    return {
-      type: TemplateType.Function,
-      func: value,
-    };
+    return createFunctionRenderer(value);
   } else if (isRenderable(value)) {
     return {
       type: TemplateType.Renderable,
@@ -238,4 +236,16 @@ function isDomNode(obj: any): obj is Node {
       typeof obj.ownerDocument === 'object'
     );
   }
+}
+
+function createFunctionRenderer(func: Function): RenderableTemplate {
+  return {
+    type: TemplateType.Renderable,
+    renderer: {
+      render(context, args?: any[]) {
+        const templates = flatTree(func.apply(null, [args]), asTemplate);
+        return compile(templates).render(context.target, undefined);
+      },
+    },
+  };
 }

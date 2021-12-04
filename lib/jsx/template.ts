@@ -12,7 +12,6 @@ export enum TemplateType {
   Subscribable,
   Disposable,
   DOM,
-  Function,
   Renderable,
 }
 
@@ -48,15 +47,12 @@ interface DomTemplate {
   type: TemplateType.DOM;
   node: Node;
 }
-interface FunctionTemplate {
-  type: TemplateType.Function;
-  func: Function;
-}
 
+type RenderResult = Disposable | RenderResult[] | void;
 export interface Renderable {
-  render(context: { target: any }): Disposable | Disposable[] | void;
+  render(context: { target: any }, args?: any[]): RenderResult;
 }
-interface RenderableTemplate {
+export interface RenderableTemplate {
   type: TemplateType.Renderable;
   renderer: Renderable;
 }
@@ -69,5 +65,4 @@ export type Template =
   | SubscribableTemplate
   | DisposableTemplate
   | DomTemplate
-  | FunctionTemplate
   | RenderableTemplate;
