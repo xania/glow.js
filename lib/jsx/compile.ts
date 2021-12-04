@@ -25,7 +25,7 @@ export function compile(rootTemplate: Template | Template[]) {
     switch (template.type) {
       case TemplateType.Tag:
         const { name, children } = template;
-        const dom = createDOMElement(null, name);
+        const dom = createDOMElement('http://www.w3.org/1999/xhtml', name);
         target.appendChild(dom);
 
         for (let i = 0; i < children.length; i++) {
