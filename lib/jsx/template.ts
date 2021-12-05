@@ -5,8 +5,6 @@ export interface Disposable {
 }
 
 export enum TemplateType {
-  Attribute,
-  Event,
   Text,
   Tag,
   Subscribable,
@@ -15,20 +13,26 @@ export enum TemplateType {
   Renderable,
 }
 
+export enum AttributeType {
+  Attribute,
+  Event,
+}
+
 // type Primitive = string | number | boolean | Date;
 
-interface TagTemplate {
+export interface TagTemplate {
   type: TemplateType.Tag;
   name: string;
+  attrs: (AttributeTemplate | EventTemplate)[] | null;
   children: Template[];
 }
 interface AttributeTemplate {
-  type: TemplateType.Attribute;
+  type: AttributeType.Attribute;
   name: string;
   value: Exclude<any, null>;
 }
 interface EventTemplate {
-  type: TemplateType.Event;
+  type: AttributeType.Event;
   event: string;
   callback: Function;
 }

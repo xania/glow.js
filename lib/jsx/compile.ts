@@ -1,4 +1,4 @@
-import { TemplateType, Template, Renderable } from './template';
+import { AttributeType, TemplateType, Template, Renderable } from './template';
 import { createDOMElement } from './render';
 
 interface RenderTarget {
@@ -6,11 +6,11 @@ interface RenderTarget {
   setAttribute(name: string, value: any): void;
 }
 
-type StackItem = [RenderTarget, Template | Template[]];
+type StackItem = [Node, Template | Template[]];
 
 export function compile(rootTemplate: Template | Template[]) {
   const result = new CompileResult();
-  const stack: StackItem[] = [[result, rootTemplate]];
+  const stack: StackItem[] = [[result.root, rootTemplate]];
   while (stack.length > 0) {
     const curr = stack.pop();
     if (!curr) continue;
@@ -24,16 +24,28 @@ export function compile(rootTemplate: Template | Template[]) {
 
     switch (template.type) {
       case TemplateType.Tag:
-        const { name, children } = template;
+        const { name, attrs, children } = template;
         const dom = createDOMElement('http://www.w3.org/1999/xhtml', name);
         target.appendChild(dom);
+
+        if (attrs) {
+          for (let i = 0; i < attrs.length; i++) {
+            const attr = attrs[i];
+            if (attr.type === AttributeType.Attribute)
+              dom.setAttribute(attr.name, attr.value);
+            else
+              dom.addEventListener(attr.event, {
+                handleEvent() {
+                  debugger;
+                  attr.callback({ target });
+                },
+              });
+          }
+        }
 
         for (let i = 0; i < children.length; i++) {
           stack.push([dom, children[i]]);
         }
-        break;
-      case TemplateType.Attribute:
-        target.setAttribute(template.name, template.value);
         break;
       case TemplateType.Text:
         const textNode = document.createTextNode(template.value);
@@ -42,33 +54,51 @@ export function compile(rootTemplate: Template | Template[]) {
       case TemplateType.Renderable:
         result.addRenderer(target, template.renderer);
         break;
+      case TemplateType.Subscribable:
+        const asyncNode = document.createTextNode('loading...');
+        target.appendChild(asyncNode);
+        result.addRenderer(asyncNode, {
+          render({ target }) {
+            const subscr = template.value.subscribe({
+              next(x) {
+                target.textContent = x;
+              },
+            });
+            return {
+              dispose() {
+                subscr.unsubscribe();
+              },
+            };
+          },
+        });
+        break;
     }
   }
   return result;
 }
 
 class CompileResult implements RenderTarget {
-  private fragment: DocumentFragment;
+  root: DocumentFragment;
   private attrs = new Map<string, unknown>();
-  private rendererMap = new Map<RenderTarget, Renderable[]>();
+  private rendererMap = new Map<Node, Renderable[]>();
 
   /**
    *
    */
   constructor() {
-    this.fragment = new DocumentFragment();
+    this.root = new DocumentFragment();
   }
 
   appendChild(node: Node): void {
-    this.fragment.appendChild(node);
+    this.root.appendChild(node);
   }
   setAttribute(name: string, value: any): void {
     this.attrs.set(name, value);
   }
 
   render(target: RenderTarget, context: any) {
-    const { fragment } = this;
-    const fragmentClone = this.fragment.cloneNode(true);
+    const { root: fragment } = this;
+    const fragmentClone = this.root.cloneNode(true);
     const cloneMap = new Map<Node, Node>();
     const stack = [[fragment, fragmentClone]];
     while (stack.length) {
@@ -100,7 +130,7 @@ class CompileResult implements RenderTarget {
     target.appendChild(fragmentClone);
   }
 
-  addRenderer(target: RenderTarget, renderer: Renderable) {
+  addRenderer(target: Node, renderer: Renderable) {
     const { rendererMap } = this;
     let renderers = rendererMap.get(target);
     if (renderers) {

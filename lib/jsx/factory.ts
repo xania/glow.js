@@ -1,7 +1,12 @@
 import { Subscribable, Observer, Unsubscribable } from '../util/rxjs';
-import { RenderableTemplate, Template, TemplateType } from './template';
+import {
+  RenderableTemplate,
+  TagTemplate,
+  Template,
+  TemplateType,
+} from './template';
 import { reverse } from '../util/reverse';
-import { Renderable } from './template';
+import { Renderable, AttributeType } from './template';
 import { compile } from './compile';
 
 declare type Attachable = {
@@ -24,11 +29,12 @@ export function factory(
   }
 
   if (typeof name === 'string') {
-    const attrs: Template[] | null = attributes(props);
+    const attrs = attributes(props);
     return {
       type: TemplateType.Tag,
       name,
-      children: attrs ? flatChildren.concat(attrs) : flatChildren,
+      attrs,
+      children: flatChildren,
     };
   }
 
@@ -96,19 +102,19 @@ export function flatTree<T = any>(tree: any, project?: (item: any) => T | T[]) {
 //   return typeof obj === 'object' && obj !== null && prop in obj;
 // }
 
-export function attributes(props: any | null): Template[] | null {
+export function attributes(props: any | null): TagTemplate['attrs'] {
   if (props)
     return Object.keys(props).map((name) => {
       const value = props[name];
       if (('on' + name).toLocaleLowerCase() in HTMLElement.prototype) {
         return {
-          type: TemplateType.Event,
+          type: AttributeType.Event,
           event: name.toLocaleLowerCase(),
           callback: value,
         };
       } else {
         return {
-          type: TemplateType.Attribute,
+          type: AttributeType.Attribute,
           name,
           value,
         };

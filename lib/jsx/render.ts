@@ -1,4 +1,4 @@
-import { Renderable, Template, TemplateType } from './template';
+import { AttributeType, Renderable, Template, TemplateType } from './template';
 
 export interface RenderTarget {
   addEventListener(event: string, handler: EventHandler): void;
@@ -33,8 +33,21 @@ export function render(
 
     switch (child.type) {
       case TemplateType.Tag:
-        const { children } = child;
+        const { attrs, children } = child;
         const tag = createDOMElement(target.namespaceURI, child.name);
+        if (attrs) {
+          for (const attr of attrs) {
+            if (attr.type === AttributeType.Attribute) {
+              tag.setAttribute(attr.name, attr.value);
+            } else if (attr.type === AttributeType.Event) {
+              tag.addEventListener(attr.event, {
+                handleEvent() {
+                  attr.callback();
+                },
+              });
+            }
+          }
+        }
 
         let { length } = children;
         target.appendChild(tag);
@@ -62,20 +75,6 @@ export function render(
             },
           });
         }
-        break;
-
-      case TemplateType.Attribute:
-        target.setAttribute(child.name, child.value);
-        break;
-
-      case TemplateType.Event:
-        const { event, callback } = child;
-        target.addEventListener(event, {
-          handleEvent() {
-            callback({ target });
-          },
-        });
-
         break;
 
       case TemplateType.Subscribable:
