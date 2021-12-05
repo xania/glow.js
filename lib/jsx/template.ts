@@ -52,7 +52,7 @@ interface DomTemplate {
   node: Node;
 }
 
-type RenderResult = Disposable | RenderResult[] | void;
+export type RenderResult = Disposable | RenderResult[] | void;
 export interface Renderable {
   render(context: { target: any }, args?: any[]): RenderResult;
 }

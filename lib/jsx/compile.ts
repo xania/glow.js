@@ -1,4 +1,10 @@
-import { AttributeType, TemplateType, Template, Renderable } from './template';
+import {
+  AttributeType,
+  TemplateType,
+  Template,
+  Renderable,
+  RenderResult,
+} from './template';
 import { createDOMElement } from './render';
 
 interface RenderTarget {
@@ -43,8 +49,9 @@ export function compile(rootTemplate: Template | Template[]) {
           }
         }
 
-        for (let i = 0; i < children.length; i++) {
-          stack.push([dom, children[i]]);
+        let { length } = children;
+        while (length--) {
+          stack.push([dom, children[length]]);
         }
         break;
       case TemplateType.Text:
@@ -120,14 +127,18 @@ class CompileResult implements RenderTarget {
       }
     }
 
+    const renderResults: RenderResult[] = [];
+
     const { rendererMap } = this;
     for (const [target, renderables] of rendererMap.entries()) {
       const targetClone = cloneMap.get(target as any);
       for (const renderer of renderables) {
-        renderer.render({ target: targetClone }, context);
+        const rr = renderer.render({ target: targetClone }, context);
+        renderResults.push(rr);
       }
     }
     target.appendChild(fragmentClone);
+    return renderResults;
   }
 
   addRenderer(target: Node, renderer: Renderable) {
