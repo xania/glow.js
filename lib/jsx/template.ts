@@ -11,6 +11,7 @@ export enum TemplateType {
   Disposable,
   DOM,
   Renderable,
+  Context,
 }
 
 export enum AttributeType {
@@ -26,6 +27,7 @@ export interface TagTemplate {
   attrs: (AttributeTemplate | EventTemplate)[] | null;
   children: Template[];
 }
+
 interface AttributeTemplate {
   type: AttributeType.Attribute;
   name: string;
@@ -47,9 +49,15 @@ interface SubscribableTemplate {
 interface DisposableTemplate extends Disposable {
   type: TemplateType.Disposable;
 }
+
 interface DomTemplate {
   type: TemplateType.DOM;
   node: Node;
+}
+
+interface ContextTemplate {
+  type: TemplateType.Context;
+  func: (context: any) => any;
 }
 
 export type RenderResult = Disposable | RenderResult[] | void;
@@ -63,10 +71,9 @@ export interface RenderableTemplate {
 
 export type Template =
   | TagTemplate
-  | AttributeTemplate
   | NativeTemplate
-  | EventTemplate
   | SubscribableTemplate
   | DisposableTemplate
   | DomTemplate
+  | ContextTemplate
   | RenderableTemplate;

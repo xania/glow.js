@@ -244,7 +244,7 @@ function isDomNode(obj: any): obj is Node {
   }
 }
 
-function createFunctionRenderer(func: Function): RenderableTemplate {
+export function createFunctionRenderer(func: Function): RenderableTemplate {
   return {
     type: TemplateType.Renderable,
     renderer: {

@@ -1,4 +1,4 @@
-import { Template } from './template';
+import { Template, TemplateType } from './template';
 import {
   ListMutation,
   ListMutationManager,
@@ -8,10 +8,28 @@ import { flatTree } from '../../lib/tpl';
 
 import { compile } from './compile';
 
+export class RowContext<T> {
+  get<U>(getter: (row: T) => U) {
+    return function (context: { values: T }) {
+      if (context) return getter(context.values);
+      return null;
+    };
+  }
+  remove(context: { remove: Function }) {
+    if (context?.remove) context.remove();
+  }
+  call(func: (row: T) => void) {
+    return function (context: { values: T }) {
+      func(context.values);
+    };
+  }
+}
 export function createList<T>() {
   const mutations = new ListMutationManager<T>();
   return {
-    map(itemTemplate: Template) {
+    map(mapper: (context: RowContext<T>) => Template) {
+      const context = new RowContext<T>();
+      const itemTemplate = mapper(context);
       const compiled = compile(itemTemplate);
       return {
         render({ target }: { target: Element }) {
@@ -42,12 +60,20 @@ function createMutationsObserver<T>(
       const { type } = mut;
       switch (type) {
         case ListMutationType.PUSH:
-          disposables.push(template.render(target, mut.values));
+          disposables.push(renderPush(target, mut.values));
           break;
         case ListMutationType.CLEAR:
           flatTree(disposables, (d) => d.dispose());
           disposables.length = 0;
           break;
+      }
+
+      function renderPush(target: Element, values: T) {
+        const rr = template.render(target, { values, remove });
+        return rr;
+        function remove() {
+          flatTree(rr, (r) => r.dispose());
+        }
       }
     },
   };

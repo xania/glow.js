@@ -6,17 +6,18 @@ import {
   RenderResult,
 } from './template';
 import { createDOMElement } from './render';
+import { isSubscribable } from '../driver';
+import { Subscribable } from '../util/rxjs';
 
 interface RenderTarget {
   appendChild(node: Node): void;
-  setAttribute(name: string, value: any): void;
 }
 
 type StackItem = [Node, Template | Template[]];
 
 export function compile(rootTemplate: Template | Template[]) {
   const result = new CompileResult();
-  const stack: StackItem[] = [[result.root, rootTemplate]];
+  const stack: StackItem[] = [[result.fragments, rootTemplate]];
   while (stack.length > 0) {
     const curr = stack.pop();
     if (!curr) continue;
@@ -37,15 +38,11 @@ export function compile(rootTemplate: Template | Template[]) {
         if (attrs) {
           for (let i = 0; i < attrs.length; i++) {
             const attr = attrs[i];
-            if (attr.type === AttributeType.Attribute)
-              dom.setAttribute(attr.name, attr.value);
-            else
-              dom.addEventListener(attr.event, {
-                handleEvent() {
-                  debugger;
-                  attr.callback({ target });
-                },
-              });
+            if (attr.type === AttributeType.Attribute) {
+              result.setAttribute(dom, attr.name, attr.value);
+            } else {
+              result.addEventListener(dom, attr.event, attr.callback);
+            }
           }
         }
 
@@ -62,7 +59,7 @@ export function compile(rootTemplate: Template | Template[]) {
         result.addRenderer(target, template.renderer);
         break;
       case TemplateType.Subscribable:
-        const asyncNode = document.createTextNode('loading...');
+        const asyncNode = document.createTextNode('');
         target.appendChild(asyncNode);
         result.addRenderer(asyncNode, {
           render({ target }) {
@@ -79,35 +76,91 @@ export function compile(rootTemplate: Template | Template[]) {
           },
         });
         break;
+      case TemplateType.Context:
+        const contextNode = document.createTextNode('');
+        target.appendChild(contextNode);
+        result.addContext(contextNode, template.func);
+        break;
     }
   }
   return result;
 }
 
+interface CompileEvent {
+  element: Element;
+  type: string;
+  callback: Function;
+}
+
 class CompileResult implements RenderTarget {
-  root: DocumentFragment;
+  fragments: DocumentFragment;
   private attrs = new Map<string, unknown>();
   private rendererMap = new Map<Node, Renderable[]>();
+  private events: CompileEvent[] = [];
 
   /**
    *
    */
   constructor() {
-    this.root = new DocumentFragment();
+    this.fragments = new DocumentFragment();
   }
 
   appendChild(node: Node): void {
-    this.root.appendChild(node);
+    this.fragments.appendChild(node);
+    return;
   }
-  setAttribute(name: string, value: any): void {
-    this.attrs.set(name, value);
+  setAttribute(elt: Element, name: string, value: any): void {
+    if (isSubscribable(value)) {
+      this.addRenderer(elt, {
+        render(ctx) {
+          bind(ctx.target, value);
+        },
+      });
+    } else if (typeof value === 'function') {
+      const func = value;
+      this.addRenderer(elt, {
+        render(ctx, args) {
+          const value = func(args);
+
+          if (isSubscribable(value)) {
+            bind(ctx.target, value);
+          } else {
+            ctx.target.setAttribute(name, value);
+          }
+        },
+      });
+    } else {
+      elt.setAttribute(name, value);
+    }
+
+    function bind(target: Element, subscribable: Subscribable<any>) {
+      const subscr = subscribable.subscribe({
+        next(value) {
+          target.setAttribute(name, value);
+        },
+      });
+
+      return {
+        dispose() {
+          subscr.unsubscribe();
+        },
+      };
+    }
+  }
+
+  addEventListener(element: Element, type: string, callback: Function) {
+    this.events.push({
+      element,
+      type,
+      callback,
+    });
   }
 
   render(target: RenderTarget, context: any) {
-    const { root: fragment } = this;
-    const fragmentClone = this.root.cloneNode(true);
+    const { fragments: fragment } = this;
+    const rootClone = this.fragments.cloneNode(true);
     const cloneMap = new Map<Node, Node>();
-    const stack = [[fragment, fragmentClone]];
+    const stack = [[fragment, rootClone]];
     while (stack.length) {
       const curr = stack.pop();
       if (!curr) continue;
@@ -137,7 +190,26 @@ class CompileResult implements RenderTarget {
         renderResults.push(rr);
       }
     }
-    target.appendChild(fragmentClone);
+
+    for (const event of this.events) {
+      const targetClone = cloneMap.get(event.element as any);
+      const callback = event.callback;
+      const handler = {
+        handleEvent() {
+          callback(context);
+        },
+      };
+      targetClone?.addEventListener(event.type, handler);
+    }
+
+    const rootChildren: ChildNode[] = [];
+    rootClone.childNodes.forEach((x) => rootChildren.push(x));
+    target.appendChild(rootClone);
+    renderResults.push({
+      dispose() {
+        rootChildren.forEach((child) => child.remove());
+      },
+    });
     return renderResults;
   }
 
@@ -149,5 +221,28 @@ class CompileResult implements RenderTarget {
     } else {
       rendererMap.set(target, [renderer]);
     }
+  }
+
+  addContext(target: Node, func: Function) {
+    const renderer: Renderable = {
+      render({ target }: { target: Node }, context: any): RenderResult {
+        const value = func(context);
+        if (isSubscribable(value)) {
+          const subscr = value.subscribe({
+            next(x: any) {
+              target.textContent = x;
+            },
+          });
+          return {
+            dispose() {
+              subscr.unsubscribe();
+            },
+          };
+        } else {
+          target.textContent = value;
+        }
+      },
+    };
+    return this.addRenderer(target, renderer);
   }
 }
