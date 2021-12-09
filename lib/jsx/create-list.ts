@@ -9,6 +9,13 @@ import { flatTree } from '../../lib/tpl';
 import { compile } from './compile';
 
 export class RowContext<T> {
+  property(name: string) {
+    return name;
+    return {
+      type: TemplateType.Property,
+      name
+    }
+  }
   get<U>(getter: (row: T) => U) {
     return function (context: { values: T }) {
       if (context) return getter(context.values);
@@ -57,8 +64,7 @@ function createMutationsObserver<T>(
   const disposables: any[] = [];
   return {
     next(mut: ListMutation<T>) {
-      const { type } = mut;
-      switch (type) {
+      switch (mut.type) {
         case ListMutationType.PUSH:
           disposables.push(renderPush(target, mut.values));
           break;

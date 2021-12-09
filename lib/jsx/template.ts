@@ -12,6 +12,7 @@ export enum TemplateType {
   DOM,
   Renderable,
   Context,
+  Property
 }
 
 export enum AttributeType {
@@ -60,6 +61,11 @@ interface ContextTemplate {
   func: (context: any) => any;
 }
 
+interface PropertyTemplate {
+  type: TemplateType.Property;
+  name: string;
+}
+
 export type RenderResult = Disposable | RenderResult[] | void;
 export interface Renderable {
   render(context: { target: any }, args?: any[]): RenderResult;
@@ -76,4 +82,5 @@ export type Template =
   | DisposableTemplate
   | DomTemplate
   | ContextTemplate
-  | RenderableTemplate;
+  | RenderableTemplate
+  | PropertyTemplate;

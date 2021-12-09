@@ -16,8 +16,11 @@ interface RenderTarget {
 type StackItem = [Node, Template | Template[]];
 
 export function compile(rootTemplate: Template | Template[]) {
-  const result = new CompileResult();
-  const stack: StackItem[] = [[result.fragments, rootTemplate]];
+  const renderers = createLookup<Node, Renderable>();
+  const events = createLookup<Node, CompilationEvent>();
+
+  const fragment = new  DocumentFragment();
+  const stack: StackItem[] = [[fragment, rootTemplate]];
   while (stack.length > 0) {
     const curr = stack.pop();
     if (!curr) continue;
@@ -39,9 +42,9 @@ export function compile(rootTemplate: Template | Template[]) {
           for (let i = 0; i < attrs.length; i++) {
             const attr = attrs[i];
             if (attr.type === AttributeType.Attribute) {
-              result.setAttribute(dom, attr.name, attr.value);
+              setAttribute(dom, attr.name, attr.value);
             } else {
-              result.addEventListener(dom, attr.event, attr.callback);
+              events.add(dom, { name: attr.event, callback: attr.callback });
             }
           }
         }
@@ -56,12 +59,12 @@ export function compile(rootTemplate: Template | Template[]) {
         target.appendChild(textNode);
         break;
       case TemplateType.Renderable:
-        result.addRenderer(target, template.renderer);
+        renderers.add(target, template.renderer);
         break;
       case TemplateType.Subscribable:
         const asyncNode = document.createTextNode('');
         target.appendChild(asyncNode);
-        result.addRenderer(asyncNode, {
+        renderers.add(asyncNode, {
           render({ target }) {
             const subscr = template.value.subscribe({
               next(x) {
@@ -79,46 +82,56 @@ export function compile(rootTemplate: Template | Template[]) {
       case TemplateType.Context:
         const contextNode = document.createTextNode('');
         target.appendChild(contextNode);
-        result.addContext(contextNode, template.func);
+        addContext(contextNode, template.func);
         break;
     }
   }
-  return result;
-}
 
-interface CompileEvent {
-  element: Element;
-  type: string;
-  callback: Function;
-}
+  return createResult();
 
-class CompileResult implements RenderTarget {
-  fragments: DocumentFragment;
-  private attrs = new Map<string, unknown>();
-  private rendererMap = new Map<Node, Renderable[]>();
-  private events: CompileEvent[] = [];
-
-  /**
-   *
-   */
-  constructor() {
-    this.fragments = new DocumentFragment();
+  function createResult()
+  {
+   const result = new CompileResult(fragment);
+    traverse(fragment.childNodes, (node, i) => {
+      result.addEvents(i, events.get(node));
+      result.addRenderables(i, renderers.get(node));
+    })
+    return result;
   }
 
-  appendChild(node: Node): void {
-    this.fragments.appendChild(node);
-    return;
+  function addContext(target: Node, func: Function) {
+    const renderer: Renderable = {
+      render({ target }: { target: Node }, context: any): RenderResult {
+        const value = func(context);
+        if (isSubscribable(value)) {
+          const subscr = value.subscribe({
+            next(x: any) {
+              target.textContent = x;
+            },
+          });
+          return {
+            dispose() {
+              subscr.unsubscribe();
+            },
+          };
+        } else {
+          target.textContent = value;
+        }
+      },
+    };
+    return renderers.add(target, renderer);
   }
-  setAttribute(elt: Element, name: string, value: any): void {
+
+  function setAttribute(elt: Element, name: string, value: any): void {
     if (isSubscribable(value)) {
-      this.addRenderer(elt, {
+      renderers.add(elt, {
         render(ctx) {
           bind(ctx.target, value);
         },
       });
     } else if (typeof value === 'function') {
       const func = value;
-      this.addRenderer(elt, {
+      renderers.add(elt, {
         render(ctx, args) {
           const value = func(args);
 
@@ -147,60 +160,53 @@ class CompileResult implements RenderTarget {
       };
     }
   }
+}
 
-  addEventListener(element: Element, type: string, callback: Function) {
-    this.events.push({
-      element,
-      type,
-      callback,
-    });
+interface CompilationEvent {
+  name: string;
+  callback: Function;
+}
+
+class CompileResult {
+  private renderablesMap: { [i: number]: Renderable[] } = {};
+  private eventsMap: { [i: number]: CompilationEvent[] } = {};
+
+  constructor(private fragment: DocumentFragment) {}
+
+  addEvents(index: number, events?: CompilationEvent[]) {
+    if (events) this.eventsMap[index] = events;
+  }
+
+  addRenderables(index: number, renderables?: Renderable[]) {
+    if (renderables) this.renderablesMap[index] = renderables;
   }
 
   render(target: RenderTarget, context: any) {
-    const { fragments: fragment } = this;
-    const rootClone = this.fragments.cloneNode(true);
-    const cloneMap = new Map<Node, Node>();
-    const stack = [[fragment, rootClone]];
-    while (stack.length) {
-      const curr = stack.pop();
-      if (!curr) continue;
-
-      const [original, clone] = curr;
-      cloneMap.set(original, clone);
-
-      if (original.childNodes.length !== clone.childNodes.length) {
-        throw Error('clone mismatch');
-      }
-
-      const originalChildNodes = original.childNodes;
-      const cloneChildNodes = clone.childNodes;
-      let length = originalChildNodes.length;
-      while (length--) {
-        stack.push([originalChildNodes[length], cloneChildNodes[length]]);
-      }
-    }
-
+    const { fragment } = this;
+    const rootClone = fragment.cloneNode(true);
     const renderResults: RenderResult[] = [];
 
-    const { rendererMap } = this;
-    for (const [target, renderables] of rendererMap.entries()) {
-      const targetClone = cloneMap.get(target as any);
-      for (const renderer of renderables) {
-        const rr = renderer.render({ target: targetClone }, context);
-        renderResults.push(rr);
+    traverse(rootClone.childNodes, (target, i) => {
+      const events = this.eventsMap[i];
+      if (events) {
+        for (const event of events) {
+          const callback = event.callback;
+          const handler = {
+            handleEvent() {
+              callback(context);
+            },
+          };
+          target.addEventListener(event.name, handler);
+        }
       }
-    }
-
-    for (const event of this.events) {
-      const targetClone = cloneMap.get(event.element as any);
-      const callback = event.callback;
-      const handler = {
-        handleEvent() {
-          callback(context);
-        },
-      };
-      targetClone?.addEventListener(event.type, handler);
-    }
+      const renderables = this.renderablesMap[i];
+      if (renderables) {
+        for (const renderer of renderables) {
+          const rr = renderer.render({ target }, context);
+          renderResults.push(rr);
+        }
+      }
+    });
 
     const rootChildren: ChildNode[] = [];
     rootClone.childNodes.forEach((x) => rootChildren.push(x));
@@ -212,37 +218,39 @@ class CompileResult implements RenderTarget {
     });
     return renderResults;
   }
+}
 
-  addRenderer(target: Node, renderer: Renderable) {
-    const { rendererMap } = this;
-    let renderers = rendererMap.get(target);
-    if (renderers) {
-      renderers.push(renderer);
-    } else {
-      rendererMap.set(target, [renderer]);
+
+
+function createLookup<K, T>() {
+  const lookup = new Map<K, T[]>();
+  return {
+    get(key: K) {
+      return lookup.get(key);
+    },
+    add(key: K, value: T) {
+      const values = lookup.get(key);
+      if (values) {
+        values.push(value);
+      } else {
+        lookup.set(key, [value]);
+      }
     }
   }
+}
 
-  addContext(target: Node, func: Function) {
-    const renderer: Renderable = {
-      render({ target }: { target: Node }, context: any): RenderResult {
-        const value = func(context);
-        if (isSubscribable(value)) {
-          const subscr = value.subscribe({
-            next(x: any) {
-              target.textContent = x;
-            },
-          });
-          return {
-            dispose() {
-              subscr.unsubscribe();
-            },
-          };
-        } else {
-          target.textContent = value;
-        }
-      },
-    };
-    return this.addRenderer(target, renderer);
-  }
+function traverse(rootNodes: NodeListOf<Node>, visitor: (child: Node, index: number) => any) {
+    let stack: Node[] = [];
+    rootNodes.forEach((x) => stack.push(x));
+    
+    let flatIndex = 0;
+    while (stack.length) {
+      const curr = stack.pop() as Node;
+      const childNodes = curr.childNodes;
+      let length = curr.childNodes.length;
+      while(length--) {
+        stack.push(childNodes[length])
+      }
+      visitor(curr, flatIndex++);
+    }
 }
