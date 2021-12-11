@@ -13,18 +13,18 @@ interface RenderTarget {
   appendChild(node: Node): void;
 }
 
-type StackItem = [Node, Template | Template[]];
+type StackItem = [Node, Template | Template[], CompilationNode];
 
 export function compile(rootTemplate: Template | Template[]) {
   const renderers = createLookup<Node, Renderable>();
   const events = createLookup<Node, CompilationEvent>();
 
-  const fragment = new  DocumentFragment();
-  const stack: StackItem[] = [[fragment, rootTemplate]];
+  const fragment = new DocumentFragment();
+  const rootCompilationNode: CompilationNode = { index: 0 };
+  const stack: StackItem[] = [[fragment, rootTemplate, rootCompilationNode]];
   while (stack.length > 0) {
-    const curr = stack.pop();
-    if (!curr) continue;
-    const [target, template] = curr;
+    const curr = stack.pop() as StackItem;
+    const [target, template, cNode] = curr;
     if (Array.isArray(template)) {
       for (let i = template.length; i--; ) {
         stack.push([target, template[i]]);
@@ -89,13 +89,12 @@ export function compile(rootTemplate: Template | Template[]) {
 
   return createResult();
 
-  function createResult()
-  {
-   const result = new CompileResult(fragment);
-    traverse(fragment.childNodes, (node, i) => {
-      result.addEvents(i, events.get(node));
-      result.addRenderables(i, renderers.get(node));
-    })
+  function createResult() {
+    const result = new CompileResult(fragment);
+    traverse(fragment.childNodes, (node, path) => {
+      // result.addEvents(path, events.get(node));
+      // result.addRenderables(path, renderers.get(node));
+    });
     return result;
   }
 
@@ -186,30 +185,42 @@ class CompileResult {
     const rootClone = fragment.cloneNode(true);
     const renderResults: RenderResult[] = [];
 
-    traverse(rootClone.childNodes, (target, i) => {
-      const events = this.eventsMap[i];
-      if (events) {
-        for (const event of events) {
-          const callback = event.callback;
-          const handler = {
-            handleEvent() {
-              callback(context);
-            },
-          };
-          target.addEventListener(event.name, handler);
-        }
+    const rootChildren: ChildNode[] = [];
+    rootClone.childNodes.forEach((x) => rootChildren.push(x));
+    const { renderablesMap } = this;
+
+    let stack: Node[] = [...rootChildren];
+    let flatIndex = 0;
+    let stackLength = stack.length;
+    while (stackLength) {
+      const target = stack[--stackLength] as Node;
+      const childNodes = target.childNodes;
+      let length = childNodes.length;
+      while (length--) {
+        stack[stackLength++] = childNodes[length];
       }
-      const renderables = this.renderablesMap[i];
+
+      // const events = eventsMap[flatIndex];
+      // if (events) {
+      //   for (const event of events) {
+      //     const callback = event.callback;
+      //     const handler = {
+      //       handleEvent() {
+      //         callback(context);
+      //       },
+      //     };
+      //     target.addEventListener(event.name, handler);
+      //   }
+      // }
+      const renderables = renderablesMap[flatIndex];
       if (renderables) {
         for (const renderer of renderables) {
           const rr = renderer.render({ target }, context);
           renderResults.push(rr);
         }
       }
-    });
-
-    const rootChildren: ChildNode[] = [];
-    rootClone.childNodes.forEach((x) => rootChildren.push(x));
+      flatIndex++;
+    }
     target.appendChild(rootClone);
     renderResults.push({
       dispose() {
@@ -219,8 +230,6 @@ class CompileResult {
     return renderResults;
   }
 }
-
-
 
 function createLookup<K, T>() {
   const lookup = new Map<K, T[]>();
@@ -235,22 +244,33 @@ function createLookup<K, T>() {
       } else {
         lookup.set(key, [value]);
       }
+    },
+  };
+}
+
+type Path = number[];
+function traverse(
+  rootNodes: NodeListOf<Node>,
+  visitor: (child: Node, path: Path) => any
+) {
+  type StackType = [Path, Node];
+  let stack: StackType[] = [];
+  rootNodes.forEach((x, i) => stack.push([[i], x]));
+
+  while (stack.length) {
+    const [path, curr] = stack.pop() as StackType;
+    visitor(curr, path);
+    const childNodes = curr.childNodes;
+    let length = curr.childNodes.length;
+    while (length--) {
+      stack.push([[...path, length], childNodes[length]]);
     }
   }
 }
 
-function traverse(rootNodes: NodeListOf<Node>, visitor: (child: Node, index: number) => any) {
-    let stack: Node[] = [];
-    rootNodes.forEach((x) => stack.push(x));
-    
-    let flatIndex = 0;
-    while (stack.length) {
-      const curr = stack.pop() as Node;
-      const childNodes = curr.childNodes;
-      let length = curr.childNodes.length;
-      while(length--) {
-        stack.push(childNodes[length])
-      }
-      visitor(curr, flatIndex++);
-    }
-}
+type CompilationNodeAction = Renderable | CompilationEvent;
+type CompilationNode = {
+  index: number;
+  actions?: CompilationNodeAction[];
+  children?: CompilationNode[];
+};
