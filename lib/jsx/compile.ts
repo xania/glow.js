@@ -13,22 +13,20 @@ interface RenderTarget {
   appendChild(node: Node): void;
 }
 
-type StackItem = [Node, Template | Template[], CompilationNode];
+type StackItem = [Node, Template | Template[]];
 
 export function compile(rootTemplate: Template | Template[]) {
   const renderers = createLookup<Node, Renderable>();
   const events = createLookup<Node, CompilationEvent>();
 
   const fragment = new DocumentFragment();
-  const rootCompilationNode: CompilationNode = { index: 0 };
-  const stack: StackItem[] = [[fragment, rootTemplate, rootCompilationNode]];
+  const stack: StackItem[] = [[fragment, rootTemplate]];
   while (stack.length > 0) {
     const curr = stack.pop() as StackItem;
-    const [target, template, cNode] = curr;
+    const [target, template] = curr;
+
     if (Array.isArray(template)) {
-      for (let i = template.length; i--; ) {
-        stack.push([target, template[i]]);
-      }
+      for (let i = template.length; i--; ) stack.push([target, template[i]]);
       continue;
     }
 
@@ -91,6 +89,18 @@ export function compile(rootTemplate: Template | Template[]) {
 
   function createResult() {
     const result = new CompileResult(fragment);
+    type StackItem = { childNode: ChildNode; compilationNode: CompilationNode };
+    const rootCompilationNodes: StackItem[] = fragment.childNodes.forEach(
+      (childNode) => ({ childNode } as StackItem)
+    );
+
+    const stack: StackItem[] = [
+      { childNode: ChildNode, compilationNode: { index: 0 } },
+    ];
+    while (stack.length) {
+      const curr = stack.pop() as typeof stack[number];
+      curr.childNodes.forEach((x) => stack.push(x));
+    }
     traverse(fragment.childNodes, (node, path) => {
       // result.addEvents(path, events.get(node));
       // result.addRenderables(path, renderers.get(node));
@@ -187,40 +197,40 @@ class CompileResult {
 
     const rootChildren: ChildNode[] = [];
     rootClone.childNodes.forEach((x) => rootChildren.push(x));
-    const { renderablesMap } = this;
+    // const { renderablesMap } = this;
 
-    let stack: Node[] = [...rootChildren];
-    let flatIndex = 0;
-    let stackLength = stack.length;
-    while (stackLength) {
-      const target = stack[--stackLength] as Node;
-      const childNodes = target.childNodes;
-      let length = childNodes.length;
-      while (length--) {
-        stack[stackLength++] = childNodes[length];
-      }
+    // let stack: Node[] = [...rootChildren];
+    // let flatIndex = 0;
+    // let stackLength = stack.length;
+    // while (stackLength) {
+    //   const target = stack[--stackLength] as Node;
+    //   const childNodes = target.childNodes;
+    //   let length = childNodes.length;
+    //   while (length--) {
+    //     stack[stackLength++] = childNodes[length];
+    //   }
 
-      // const events = eventsMap[flatIndex];
-      // if (events) {
-      //   for (const event of events) {
-      //     const callback = event.callback;
-      //     const handler = {
-      //       handleEvent() {
-      //         callback(context);
-      //       },
-      //     };
-      //     target.addEventListener(event.name, handler);
-      //   }
-      // }
-      const renderables = renderablesMap[flatIndex];
-      if (renderables) {
-        for (const renderer of renderables) {
-          const rr = renderer.render({ target }, context);
-          renderResults.push(rr);
-        }
-      }
-      flatIndex++;
-    }
+    //   // const events = eventsMap[flatIndex];
+    //   // if (events) {
+    //   //   for (const event of events) {
+    //   //     const callback = event.callback;
+    //   //     const handler = {
+    //   //       handleEvent() {
+    //   //         callback(context);
+    //   //       },
+    //   //     };
+    //   //     target.addEventListener(event.name, handler);
+    //   //   }
+    //   // }
+    //   const renderables = renderablesMap[flatIndex];
+    //   if (renderables) {
+    //     for (const renderer of renderables) {
+    //       const rr = renderer.render({ target }, context);
+    //       renderResults.push(rr);
+    //     }
+    //   }
+    //   flatIndex++;
+    // }
     target.appendChild(rootClone);
     renderResults.push({
       dispose() {
@@ -273,4 +283,5 @@ type CompilationNode = {
   index: number;
   actions?: CompilationNodeAction[];
   children?: CompilationNode[];
+  parent?: CompilationNode;
 };
