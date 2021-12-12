@@ -310,23 +310,11 @@ function transform<T>(
     const [parentResult, index, node] = stack.pop() as StackItem;
     let visitResult = parentResult[index];
     if (visitResult) {
-      const { children } = visitResult;
-      let visitValue: VisitResult<T>['value'];
-      if (children) {
-        let hasAny = false;
-        for (const key in Object.keys(children)) {
-          const child = children[key];
-          if (child.value || child.children) {
-            hasAny = true;
-          } else {
-            delete children[key];
-          }
-        }
-        if (!hasAny) delete visitResult.children;
-        visitValue = visitFn(node, visitResult.children);
-      } else {
-        visitValue = visitFn(node);
+      const children = sanitize(visitResult.children);
+      if (!children) {
+        delete visitResult.children;
       }
+      const visitValue = visitFn(node, children);
       if (visitValue) {
         visitResult.value = visitValue;
       }
@@ -347,13 +335,23 @@ function transform<T>(
     }
   }
 
-  return rootResult;
+  return sanitize(rootResult);
 }
 
-type CompilationNodeAction = Renderable | CompilationEvent;
-type CompilationNode = {
-  index: number;
-  actions?: CompilationNodeAction[];
-  children?: CompilationNode[];
-  parent?: CompilationNode;
-};
+function sanitize<T>(children?: TransformResult<T>) {
+  if (children) {
+    let hasAny = false;
+    for (const key in Object.keys(children)) {
+      const child = children[key];
+      if (child.value || child.children) {
+        hasAny = true;
+      } else {
+        delete children[key];
+      }
+    }
+    if (!hasAny) return undefined;
+    return children;
+  } else {
+    return undefined;
+  }
+}
