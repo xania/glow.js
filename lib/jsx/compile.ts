@@ -16,8 +16,8 @@ interface RenderTarget {
 type StackItem = [Node, Template | Template[]];
 
 export function compile(rootTemplate: Template | Template[]) {
-  const renderers = createLookup<Node, Renderable>();
-  const events = createLookup<Node, CompilationEvent>();
+  const renderersMap = createLookup<Node, Renderable>();
+  const eventsMap = createLookup<Node, CompilationEvent>();
 
   const fragment = new DocumentFragment();
   const stack: StackItem[] = [[fragment, rootTemplate]];
@@ -42,7 +42,7 @@ export function compile(rootTemplate: Template | Template[]) {
             if (attr.type === AttributeType.Attribute) {
               setAttribute(dom, attr.name, attr.value);
             } else {
-              events.add(dom, { name: attr.event, callback: attr.callback });
+              eventsMap.add(dom, { name: attr.event, callback: attr.callback });
             }
           }
         }
@@ -57,12 +57,12 @@ export function compile(rootTemplate: Template | Template[]) {
         target.appendChild(textNode);
         break;
       case TemplateType.Renderable:
-        renderers.add(target, template.renderer);
+        renderersMap.add(target, template.renderer);
         break;
       case TemplateType.Subscribable:
         const asyncNode = document.createTextNode('');
         target.appendChild(asyncNode);
-        renderers.add(asyncNode, {
+        renderersMap.add(asyncNode, {
           render({ target }) {
             const subscr = template.value.subscribe({
               next(x) {
@@ -89,22 +89,54 @@ export function compile(rootTemplate: Template | Template[]) {
 
   function createResult() {
     const result = new CompileResult(fragment);
-    type StackItem = { childNode: ChildNode; compilationNode: CompilationNode };
-    const rootCompilationNodes: StackItem[] = fragment.childNodes.forEach(
-      (childNode) => ({ childNode } as StackItem)
+    console.log(
+      transform<any>(fragment.childNodes, (node) => {
+        const events = eventsMap.get(node);
+        const renderers = renderersMap.get(node);
+        if (!events && !renderers) return undefined;
+        return {
+          node,
+          events,
+          renderers,
+        };
+      })
     );
+    // type StackItem = { node: Node; compilationNode: CompilationNode };
+    // const rootItems: StackItem[] = [];
+    // fragment.childNodes.forEach((node, index) =>
+    //   rootItems.push({
+    //     node,
+    //     compilationNode: { index },
+    //   })
+    // );
 
-    const stack: StackItem[] = [
-      { childNode: ChildNode, compilationNode: { index: 0 } },
-    ];
-    while (stack.length) {
-      const curr = stack.pop() as typeof stack[number];
-      curr.childNodes.forEach((x) => stack.push(x));
-    }
-    traverse(fragment.childNodes, (node, path) => {
-      // result.addEvents(path, events.get(node));
-      // result.addRenderables(path, renderers.get(node));
-    });
+    // traverse(fragment.childNodes, (child, path));
+    // const stack = [...rootItems];
+    // while (stack.length) {
+    //   const { node, compilationNode } = stack.pop() as StackItem;
+
+    //   node.childNodes.forEach((x, index) => {
+    //     const childItem = {
+    //       node: x,
+    //       compilationNode: { index, parent: compilationNode },
+    //     };
+    //     stack.push(childItem);
+
+    //     if (compilationNode.children)
+    //       compilationNode.children.push(childItem.compilationNode);
+    //     else compilationNode.children = [childItem.compilationNode];
+    //   });
+    // }
+
+    // console.log(rootItems);
+
+    // const stack: StackItem[] = [
+    //   { childNode: childNode, compilationNode: { index: 0 } },
+    // ];
+    // while (stack.length) {
+    //   const { childNode, comilationNode } = stack.pop() as typeof stack[number];
+    //   childNode.childNodes.forEach((x) => stack.push(x));
+    // }
     return result;
   }
 
@@ -128,19 +160,19 @@ export function compile(rootTemplate: Template | Template[]) {
         }
       },
     };
-    return renderers.add(target, renderer);
+    return renderersMap.add(target, renderer);
   }
 
   function setAttribute(elt: Element, name: string, value: any): void {
     if (isSubscribable(value)) {
-      renderers.add(elt, {
+      renderersMap.add(elt, {
         render(ctx) {
           bind(ctx.target, value);
         },
       });
     } else if (typeof value === 'function') {
       const func = value;
-      renderers.add(elt, {
+      renderersMap.add(elt, {
         render(ctx, args) {
           const value = func(args);
 
@@ -258,24 +290,64 @@ function createLookup<K, T>() {
   };
 }
 
-type Path = number[];
-function traverse(
+type VisitResult<T> = {
+  value?: T;
+  children?: TransformResult<T>;
+};
+type TransformResult<T> = {
+  [i: number]: VisitResult<T>;
+};
+function transform<T>(
   rootNodes: NodeListOf<Node>,
-  visitor: (child: Node, path: Path) => any
+  visitFn: (child: Node, children?: TransformResult<T>) => T
 ) {
-  type StackType = [Path, Node];
-  let stack: StackType[] = [];
-  rootNodes.forEach((x, i) => stack.push([[i], x]));
+  type StackItem = [result: TransformResult<T>, index: number, node: Node];
+  let stack: StackItem[] = [];
+  const rootResult: TransformResult<T> = {};
+  rootNodes.forEach((x, i) => stack.push([rootResult, i, x]));
 
   while (stack.length) {
-    const [path, curr] = stack.pop() as StackType;
-    visitor(curr, path);
-    const childNodes = curr.childNodes;
-    let length = curr.childNodes.length;
-    while (length--) {
-      stack.push([[...path, length], childNodes[length]]);
+    const [parentResult, index, node] = stack.pop() as StackItem;
+    let visitResult = parentResult[index];
+    if (visitResult) {
+      const { children } = visitResult;
+      let visitValue: VisitResult<T>['value'];
+      if (children) {
+        let hasAny = false;
+        for (const key in Object.keys(children)) {
+          const child = children[key];
+          if (child.value || child.children) {
+            hasAny = true;
+          } else {
+            delete children[key];
+          }
+        }
+        if (!hasAny) delete visitResult.children;
+        visitValue = visitFn(node, visitResult.children);
+      } else {
+        visitValue = visitFn(node);
+      }
+      if (visitValue) {
+        visitResult.value = visitValue;
+      }
+    } else {
+      parentResult[index] = visitResult = {};
+      stack.push([parentResult, index, node]);
+
+      const childNodes = node.childNodes;
+      let length = childNodes.length;
+      if (length) {
+        const children: TransformResult<T> = {};
+        visitResult.children = children;
+
+        while (length--) {
+          stack.push([children, length, childNodes[length]]);
+        }
+      }
     }
   }
+
+  return rootResult;
 }
 
 type CompilationNodeAction = Renderable | CompilationEvent;
