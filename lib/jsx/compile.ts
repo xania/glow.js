@@ -214,9 +214,10 @@ class CompileResult {
 
     if (nodeActionTree) {
       const stack: any[] = [rootClone, nodeActionTree];
-      while (stack.length) {
-        const tree = stack.pop() as TransformResult<NodeAction>;
-        const nodes = stack.pop() as ChildNode;
+      let stackLength = stack.length;
+      while (stackLength) {
+        const tree = stack[--stackLength] as TransformResult<NodeAction>;
+        const nodes = stack[--stackLength] as ChildNode;
 
         for (const i in tree) {
           const actionNode = tree[i];
@@ -253,15 +254,16 @@ class CompileResult {
             if (expression && context) {
               let value = context.values;
               const { path } = expression;
-              for (let i = 0; i < path.length; i++) {
+              const pathLength = path.length;
+              for (let i = 0; i < pathLength; i++) {
                 value = value[path[i]];
               }
               target.textContent = value;
             }
           }
           if (children) {
-            stack[stack.length] = target;
-            stack[stack.length] = children;
+            stack[stackLength++] = target;
+            stack[stackLength++] = children;
           }
         }
       }
