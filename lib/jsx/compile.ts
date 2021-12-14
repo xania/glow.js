@@ -105,7 +105,11 @@ export function compile(rootTemplate: Template | Template[]) {
       if (expression) retval['expression'] = expression;
       return retval;
     });
-    return new CompileResult(fragment, actions);
+
+    const nodes: Node[] = [];
+    fragment.childNodes.forEach((x) => nodes.push(x));
+
+    return new CompileResult(nodes, actions);
   }
 
   function addContext(target: Node, func: Function) {
@@ -198,21 +202,15 @@ interface NodeAction {
 
 class CompileResult {
   constructor(
-    private fragment: DocumentFragment,
+    private fragment: Node[],
     private nodeActionTree?: TransformResult<NodeAction>
   ) {}
 
   render(driver: { target: RenderTarget }, context?: RenderContext) {
     const { fragment, nodeActionTree } = this;
-    const rootClone = fragment.cloneNode(true);
+    const rootNodes = fragment.map((x) => x.cloneNode(true) as ChildNode);
+    const rootClone = { firstChild: rootNodes[0], childNodes: rootNodes };
     const renderResults: RenderResult[] = [];
-
-    const rootChildren: ChildNode[] = [];
-    const rootListOfNodes = rootClone.childNodes;
-    const rootLength = rootListOfNodes.length;
-    for (let i = 0; i < rootLength; i++) {
-      rootChildren.push(rootListOfNodes[i]);
-    }
 
     if (nodeActionTree) {
       const stack: any[] = [rootClone, nodeActionTree];
@@ -269,10 +267,13 @@ class CompileResult {
       }
     }
 
-    driver.target.appendChild(rootClone);
+    const rootLength = rootNodes.length;
+    for (let i = 0; i < rootLength; i++) {
+      driver.target.appendChild(rootNodes[i]);
+    }
     renderResults.push({
       dispose() {
-        for (const root of rootChildren) {
+        for (const root of rootNodes) {
           root.remove();
         }
       },
