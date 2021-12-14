@@ -4,10 +4,12 @@ import {
   Template,
   Renderable,
   RenderResult,
+  RenderContext,
 } from './template';
 import { createDOMElement } from './render';
 import { isSubscribable } from '../driver';
 import { Subscribable } from '../util/rxjs';
+import { Expression, ExpressionType } from './expression';
 
 interface RenderTarget {
   appendChild(node: Node): void;
@@ -17,7 +19,8 @@ type StackItem = [Node, Template | Template[]];
 
 export function compile(rootTemplate: Template | Template[]) {
   const renderersMap = createLookup<Node, Renderable>();
-  const eventsMap = createLookup<Node, CompilationEvent>();
+  // const eventsMap = createLookup<Node, CompilationEvent>();
+  const expressionsMap = new Map<Node, Expression>();
 
   const fragment = new DocumentFragment();
   const stack: StackItem[] = [[fragment, rootTemplate]];
@@ -42,7 +45,7 @@ export function compile(rootTemplate: Template | Template[]) {
             if (attr.type === AttributeType.Attribute) {
               setAttribute(dom, attr.name, attr.value);
             } else {
-              eventsMap.add(dom, { name: attr.event, callback: attr.callback });
+              // eventsMap.add(dom, { name: attr.event, callback: attr.callback });
             }
           }
         }
@@ -82,20 +85,24 @@ export function compile(rootTemplate: Template | Template[]) {
         target.appendChild(contextNode);
         addContext(contextNode, template.func);
         break;
+      case TemplateType.Property:
+        setExpression(target, template.name.split('.'));
+        break;
     }
   }
 
   return createResult();
 
   function createResult() {
-    const actions = transform<NodeAction>(fragment.childNodes, (node) => {
-      const events = eventsMap.get(node);
+    const actions = transform<NodeAction>(fragment, (node) => {
+      // const events = eventsMap.get(node);
       const renderers = renderersMap.get(node);
-      if (!events && !renderers) return undefined;
+      const expression = expressionsMap.get(node);
+      if (/*!events &&*/ !renderers && !expression) return undefined;
       const retval: NodeAction = {};
-      if (events) retval['events'] = events;
+      // if (events) retval['events'] = events;
       if (renderers) retval['renderers'] = renderers;
-
+      if (expression) retval['expression'] = expression;
       return retval;
     });
     return new CompileResult(fragment, actions);
@@ -122,6 +129,20 @@ export function compile(rootTemplate: Template | Template[]) {
       },
     };
     return renderersMap.add(target, renderer);
+  }
+
+  function setExpression(target: Node, path: string[]) {
+    return expressionsMap.set(target, {
+      type: ExpressionType.Property,
+      path,
+    });
+  }
+
+  function addRenderer<TRenderable extends Renderable>(
+    target: Node,
+    renderable: TRenderable
+  ) {
+    return renderersMap.add(target, renderable);
   }
 
   function setAttribute(elt: Element, name: string, value: any): void {
@@ -171,65 +192,84 @@ interface CompilationEvent {
 
 interface NodeAction {
   renderers?: Renderable[];
-  events?: CompilationEvent[];
+  // events?: CompilationEvent[];
+  expression?: Expression;
 }
 
 class CompileResult {
   constructor(
     private fragment: DocumentFragment,
     private nodeActionTree?: TransformResult<NodeAction>
-  ) {
-    console.log(nodeActionTree);
-  }
+  ) {}
 
-  render(target: RenderTarget, context: any) {
+  render(driver: { target: RenderTarget }, context?: RenderContext) {
     const { fragment, nodeActionTree } = this;
     const rootClone = fragment.cloneNode(true);
     const renderResults: RenderResult[] = [];
 
     const rootChildren: ChildNode[] = [];
-    rootClone.childNodes.forEach((x) => rootChildren.push(x));
+    const rootListOfNodes = rootClone.childNodes;
+    const rootLength = rootListOfNodes.length;
+    for (let i = 0; i < rootLength; i++) {
+      rootChildren.push(rootListOfNodes[i]);
+    }
 
     if (nodeActionTree) {
-      type StackItem = [ChildNode[], TransformResult<NodeAction>];
-      const stack: StackItem[] = [[rootChildren, nodeActionTree]];
+      const stack: any[] = [rootClone, nodeActionTree];
       while (stack.length) {
-        const [nodes, tree] = stack.pop() as StackItem;
+        const tree = stack.pop() as TransformResult<NodeAction>;
+        const nodes = stack.pop() as ChildNode;
 
         for (const i in tree) {
           const actionNode = tree[i];
           const { value: actions, children } = actionNode;
-          const target = nodes[i];
+          const target =
+            i === '0'
+              ? (nodes.firstChild as ChildNode)
+              : i === '1'
+              ? ((nodes.firstChild as ChildNode).nextSibling as ChildNode)
+              : nodes.childNodes[i];
           if (actions) {
-            const { events, renderers } = actions;
-            if (events) {
-              for (const event of events) {
-                const callback = event.callback;
-                const handler = {
-                  handleEvent() {
-                    callback(context);
-                  },
-                };
-                target.addEventListener(event.name, handler);
-              }
-            }
+            const { renderers, expression } = actions;
+            // if (events) {
+            //   for (const event of events) {
+            //     const callback = event.callback;
+            //     const handler = {
+            //       handleEvent() {
+            //         callback(context);
+            //       },
+            //     };
+            //     target.addEventListener(event.name, handler);
+            //   }
+            // }
             if (renderers) {
-              for (const renderer of renderers) {
-                const rr = renderer.render({ target }, context);
+              let { length } = renderers;
+              const driver = { target };
+              while (length--) {
+                const renderer = renderers[length];
+                const rr = renderer.render(driver, context);
                 renderResults.push(rr);
               }
             }
+
+            if (expression && context) {
+              let value = context.values;
+              const { path } = expression;
+              for (let i = 0; i < path.length; i++) {
+                value = value[path[i]];
+              }
+              target.textContent = value;
+            }
           }
           if (children) {
-            const childNodes: ChildNode[] = [];
-            target.childNodes.forEach((x) => childNodes.push(x));
-            stack.push([childNodes, children]);
+            stack[stack.length] = target;
+            stack[stack.length] = children;
           }
         }
       }
     }
 
-    target.appendChild(rootClone);
+    driver.target.appendChild(rootClone);
     renderResults.push({
       dispose() {
         for (const root of rootChildren) {
@@ -266,13 +306,13 @@ type TransformResult<T> = {
   [i: number]: VisitResult<T>;
 };
 function transform<T>(
-  rootNodes: NodeListOf<Node>,
+  rootNode: Node,
   visitFn: (child: Node, children?: TransformResult<T>) => T | undefined
 ) {
   type StackItem = [result: TransformResult<T>, index: number, node: Node];
   let stack: StackItem[] = [];
   const rootResult: TransformResult<T> = {};
-  rootNodes.forEach((x, i) => stack.push([rootResult, i, x]));
+  rootNode.childNodes.forEach((x, i) => stack.push([rootResult, i, x]));
 
   while (stack.length) {
     const [parentResult, index, node] = stack.pop() as StackItem;

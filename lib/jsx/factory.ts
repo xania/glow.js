@@ -6,7 +6,7 @@ import {
   TemplateType,
 } from './template';
 import { reverse } from '../util/reverse';
-import { Renderable, AttributeType } from './template';
+import { Renderable, AttributeType, RenderContext } from './template';
 import { compile } from './compile';
 
 declare type Attachable = {
@@ -248,9 +248,9 @@ export function createFunctionRenderer(func: Function): RenderableTemplate {
   return {
     type: TemplateType.Renderable,
     renderer: {
-      render(context, args?: any[]) {
-        const templates = flatTree(func.apply(null, [args]), asTemplate);
-        return compile(templates).render(context.target, undefined);
+      render(driver: any, context: RenderContext) {
+        const templates = flatTree(func.apply(null, [context]), asTemplate);
+        return compile(templates).render(driver.target, undefined);
       },
     },
   };

@@ -12,7 +12,7 @@ export enum TemplateType {
   DOM,
   Renderable,
   Context,
-  Property
+  Property,
 }
 
 export enum AttributeType {
@@ -67,8 +67,12 @@ interface PropertyTemplate {
 }
 
 export type RenderResult = Disposable | RenderResult[] | void;
+export interface RenderContext {
+  values: any;
+  remove(): unknown;
+}
 export interface Renderable {
-  render(context: { target: any }, args?: any[]): RenderResult;
+  render(driver: { target: any }, context?: RenderContext): RenderResult;
 }
 export interface RenderableTemplate {
   type: TemplateType.Renderable;

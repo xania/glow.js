@@ -1,4 +1,4 @@
-import { Template, TemplateType } from './template';
+import { Template, TemplateType, RenderContext } from './template';
 import {
   ListMutation,
   ListMutationManager,
@@ -10,11 +10,10 @@ import { compile } from './compile';
 
 export class RowContext<T> {
   property(name: string) {
-    return name;
     return {
       type: TemplateType.Property,
-      name
-    }
+      name,
+    };
   }
   get<U>(getter: (row: T) => U) {
     return function (context: { values: T }) {
@@ -59,7 +58,9 @@ export function createList<T>() {
 
 function createMutationsObserver<T>(
   target: Element,
-  template: { render: Function }
+  template: {
+    render: (driver: { target: any }, context: RenderContext) => unknown;
+  }
 ) {
   const disposables: any[] = [];
   return {
@@ -75,7 +76,7 @@ function createMutationsObserver<T>(
       }
 
       function renderPush(target: Element, values: T) {
-        const rr = template.render(target, { values, remove });
+        const rr = template.render({ target }, { values, remove });
         return rr;
         function remove() {
           flatTree(rr, (r) => r.dispose());
