@@ -10,6 +10,7 @@ import { createDOMElement } from './render';
 import { isSubscribable } from '../driver';
 import { Subscribable } from '../util/rxjs';
 import { Expression, ExpressionType } from './expression';
+import flatten, { bottomUp } from './flatten';
 
 interface RenderTarget {
   appendChild(node: Node): void;
@@ -83,10 +84,12 @@ export function compile(rootTemplate: Template | Template[]) {
       case TemplateType.Context:
         const contextNode = document.createTextNode('');
         target.appendChild(contextNode);
-        addContext(contextNode, template.func);
+        renderersMap.add(target, createFunctionRenderer(template.func));
         break;
       case TemplateType.Property:
-        setExpression(target, template.name.split('.'));
+        const exprNode = document.createTextNode('');
+        target.appendChild(exprNode);
+        setExpression(exprNode, template.name.split('.'));
         break;
     }
   }
@@ -94,26 +97,60 @@ export function compile(rootTemplate: Template | Template[]) {
   return createResult();
 
   function createResult() {
-    const actions = transform<NodeAction>(fragment, (node) => {
-      // const events = eventsMap.get(node);
+    const rootNodes = mapNodeList(fragment.childNodes, (node) => node);
+
+    const flattened = flatten(
+      rootNodes.map(createNodeCustomization),
+      ({ node }) => mapNodeList(node.childNodes, createNodeCustomization)
+    );
+
+    const customizations = new Map<Node, NodeCustomization>();
+    // iterate in reverse to traverse nodes bottom up
+    for (let i = flattened.length - 1; i >= 0; i--) {
+      const cust = flattened[i];
+
+      const children = mapNodeList(cust.node.childNodes, (node) =>
+        customizations.get(node)
+      ).filter((x) => !!x) as NodeCustomization[];
+
+      if (children.length) {
+        cust.children = children;
+        customizations.set(cust.node, cust);
+      } else if (cust.renderers || cust.expression) {
+        customizations.set(cust.node, cust);
+      }
+    }
+
+    return new CompileResult(
+      rootNodes,
+      rootNodes
+        .map((x) => customizations.get(x))
+        .filter((x) => !!x) as NodeCustomization[]
+    );
+
+    function createNodeCustomization(
+      node: Node,
+      index: number
+    ): NodeCustomization {
+      const retval: NodeCustomization = { node, index };
+
       const renderers = renderersMap.get(node);
+      if (renderers) retval.renderers = renderers;
+
       const expression = expressionsMap.get(node);
-      if (/*!events &&*/ !renderers && !expression) return undefined;
-      const retval: NodeAction = {};
-      // if (events) retval['events'] = events;
-      if (renderers) retval['renderers'] = renderers;
-      if (expression) retval['expression'] = expression;
+      if (expression) retval.expression = expression;
+
+      // const children = mapNodeList(node.childNodes, (node) =>
+      //   customizations.get(node)
+      // ).filter((x) => !!x) as NodeCustomization[];
+      // if (children.length) retval.children = children;
+
       return retval;
-    });
-
-    const nodes: Node[] = [];
-    fragment.childNodes.forEach((x) => nodes.push(x));
-
-    return new CompileResult(nodes, actions);
+    }
   }
 
-  function addContext(target: Node, func: Function) {
-    const renderer: Renderable = {
+  function createFunctionRenderer(func: Function): Renderable {
+    return {
       render({ target }: { target: Node }, context: any): RenderResult {
         const value = func(context);
         if (isSubscribable(value)) {
@@ -132,7 +169,6 @@ export function compile(rootTemplate: Template | Template[]) {
         }
       },
     };
-    return renderersMap.add(target, renderer);
   }
 
   function setExpression(target: Node, path: string[]) {
@@ -140,13 +176,6 @@ export function compile(rootTemplate: Template | Template[]) {
       type: ExpressionType.Property,
       path,
     });
-  }
-
-  function addRenderer<TRenderable extends Renderable>(
-    target: Node,
-    renderable: TRenderable
-  ) {
-    return renderersMap.add(target, renderable);
   }
 
   function setAttribute(elt: Element, name: string, value: any): void {
@@ -189,11 +218,6 @@ export function compile(rootTemplate: Template | Template[]) {
   }
 }
 
-interface CompilationEvent {
-  name: string;
-  callback: Function;
-}
-
 interface NodeAction {
   renderers?: Renderable[];
   // events?: CompilationEvent[];
@@ -203,75 +227,72 @@ interface NodeAction {
 class CompileResult {
   constructor(
     private fragment: Node[],
-    private nodeActionTree?: TransformResult<NodeAction>
+    private customizations?: NodeCustomization[]
   ) {}
 
   render(driver: { target: RenderTarget }, context?: RenderContext) {
-    const { fragment, nodeActionTree } = this;
-    const rootNodes = fragment.map((x) => x.cloneNode(true) as ChildNode);
-    const rootClone = { firstChild: rootNodes[0], childNodes: rootNodes };
+    const { fragment, customizations } = this;
+    const rootNodes: ChildNode[] = []; // fragment.map((x) => x.cloneNode(true) as ChildNode);
+    const rootLength = fragment.length;
+    for (let i = 0; i < rootLength; i++)
+      rootNodes[i] = fragment[i].cloneNode(true) as ChildNode;
     const renderResults: RenderResult[] = [];
 
-    if (nodeActionTree) {
-      const stack: any[] = [rootClone, nodeActionTree];
+    if (customizations) {
+      const stack: any[] = [];
+
+      for (const cust of customizations) {
+        const index = cust.index;
+        stack.push(rootNodes[index]);
+        stack.push(cust);
+      }
       let stackLength = stack.length;
       while (stackLength) {
-        const tree = stack[--stackLength] as TransformResult<NodeAction>;
-        const nodes = stack[--stackLength] as ChildNode;
+        const cus = stack[--stackLength] as NodeCustomization;
+        const target = stack[--stackLength] as ChildNode;
 
-        for (const i in tree) {
-          const actionNode = tree[i];
-          const { value: actions, children } = actionNode;
-          const target =
-            i === '0'
-              ? (nodes.firstChild as ChildNode)
-              : i === '1'
-              ? ((nodes.firstChild as ChildNode).nextSibling as ChildNode)
-              : nodes.childNodes[i];
-          if (actions) {
-            const { renderers, expression } = actions;
-            // if (events) {
-            //   for (const event of events) {
-            //     const callback = event.callback;
-            //     const handler = {
-            //       handleEvent() {
-            //         callback(context);
-            //       },
-            //     };
-            //     target.addEventListener(event.name, handler);
-            //   }
-            // }
-            if (renderers) {
-              let { length } = renderers;
-              const driver = { target };
-              while (length--) {
-                const renderer = renderers[length];
-                const rr = renderer.render(driver, context);
-                renderResults.push(rr);
-              }
-            }
-
-            if (expression && context) {
-              let value = context.values;
-              const { path } = expression;
-              const pathLength = path.length;
-              for (let i = 0; i < pathLength; i++) {
-                value = value[path[i]];
-              }
-              target.textContent = value;
-            }
+        const { renderers, expression, children } = cus;
+        if (renderers) {
+          let { length } = renderers;
+          const driver = { target };
+          while (length--) {
+            const renderer = renderers[length];
+            const rr = renderer.render(driver, context);
+            renderResults.push(rr);
           }
-          if (children) {
-            stack[stackLength++] = target;
-            stack[stackLength++] = children;
+        }
+
+        if (expression && context) {
+          let value = context.values;
+          const { path } = expression;
+          const pathLength = path.length;
+          for (let i = 0; i < pathLength; i++) {
+            value = value[path[i]];
+          }
+          target.textContent = value;
+        }
+        if (children) {
+          let firstChild: ChildNode | null = null;
+          for (const childCust of children) {
+            const { index } = childCust;
+            const childNode =
+              index === 0
+                ? (firstChild = target.firstChild as ChildNode)
+                : index === 1
+                ? ((firstChild || (target.firstChild as ChildNode))
+                    .nextSibling as ChildNode)
+                : target.childNodes[index];
+
+            stack[stackLength++] = childNode;
+            stack[stackLength++] = childCust;
           }
         }
       }
     }
 
-    const rootLength = rootNodes.length;
+    const rootTarget = driver.target;
     for (let i = 0; i < rootLength; i++) {
-      driver.target.appendChild(rootNodes[i]);
+      rootTarget.appendChild(rootNodes[i]);
     }
     renderResults.push({
       dispose() {
@@ -305,64 +326,85 @@ type VisitResult<T> = {
   value?: T;
   children?: TransformResult<T>;
 };
+
+type NodeCustomization = {
+  index: number;
+  node: Node;
+  expression?: Expression;
+  renderers?: Renderable[];
+  // events?: CompilationEvent[];
+  children?: NodeCustomization[];
+};
 type TransformResult<T> = {
   [i: number]: VisitResult<T>;
 };
-function transform<T>(
-  rootNode: Node,
-  visitFn: (child: Node, children?: TransformResult<T>) => T | undefined
-) {
-  type StackItem = [result: TransformResult<T>, index: number, node: Node];
-  let stack: StackItem[] = [];
-  const rootResult: TransformResult<T> = {};
-  rootNode.childNodes.forEach((x, i) => stack.push([rootResult, i, x]));
+// function transform<T>(
+//   rootNode: { childNodes: NodeListOf<ChildNode> },
+//   visitFn: (child: Node, children?: TransformResult<T>) => T | undefined
+// ): NodeCustomization {
+//   type StackItem = [result: NodeCustomization[], index: number, node: Node];
+//   let stack: StackItem[] = [];
+//   const rootResult: NodeCustomization[] = [];
+//   rootNode.childNodes.forEach((x, i) => stack.push([rootResult, i, x]));
 
-  while (stack.length) {
-    const [parentResult, index, node] = stack.pop() as StackItem;
-    let visitResult = parentResult[index];
-    if (visitResult) {
-      const children = sanitize(visitResult.children);
-      if (!children) {
-        delete visitResult.children;
-      }
-      const visitValue = visitFn(node, children);
-      if (visitValue) {
-        visitResult.value = visitValue;
-      }
-    } else {
-      parentResult[index] = visitResult = {};
-      stack.push([parentResult, index, node]);
+//   while (stack.length) {
+//     const [parentResult, index, node] = stack.pop() as StackItem;
+//     let visitResult = parentResult[index];
+//     if (visitResult) {
+//       const children = sanitize(visitResult.children);
+//       if (!children) {
+//         delete visitResult.children;
+//       }
+//       const visitValue = visitFn(node, children);
+//       if (visitValue) {
+//         visitResult.value = visitValue;
+//       }
+//     } else {
+//       parentResult[index] = visitResult = {};
+//       stack.push([parentResult, index, node]);
 
-      const childNodes = node.childNodes;
-      let length = childNodes.length;
-      if (length) {
-        const children: TransformResult<T> = {};
-        visitResult.children = children;
+//       const childNodes = node.childNodes;
+//       let length = childNodes.length;
+//       if (length) {
+//         const children: TransformResult<T> = {};
+//         visitResult.children = children;
 
-        while (length--) {
-          stack.push([children, length, childNodes[length]]);
-        }
-      }
+//         while (length--) {
+//           stack.push([children, length, childNodes[length]]);
+//         }
+//       }
+//     }
+//   }
+
+//   return sanitize(rootResult);
+// }
+
+function sanitize(rootCustomizations?: NodeCustomization[]) {
+  if (!rootCustomizations) return undefined;
+  const flattened = flatten(rootCustomizations, (c) => c.children);
+  let length = flattened.length;
+  const set = new Set<NodeCustomization>();
+  while (length--) {
+    const cust = flattened[length];
+    if (cust.expression) {
+      set.add(cust);
+    } else if (Array.isArray(cust.renderers) && cust.renderers.length > 0) {
+      set.add(cust);
+    } else if (Array.isArray(cust.children)) {
+      if (cust.children.some((x) => set.has(x))) set.add(cust);
     }
   }
-
-  return sanitize(rootResult);
+  return rootCustomizations.filter((x) => set.has(x));
 }
 
-function sanitize<T>(children?: TransformResult<T>) {
-  if (children) {
-    let hasAny = false;
-    for (const key in Object.keys(children)) {
-      const child = children[key];
-      if (child.value || child.children) {
-        hasAny = true;
-      } else {
-        delete children[key];
-      }
-    }
-    if (!hasAny) return undefined;
-    return children;
-  } else {
-    return undefined;
+function mapNodeList<U>(
+  nodes: NodeListOf<Node>,
+  mapper: (x: Node, i: number) => U
+) {
+  const result: U[] = [];
+  const length = nodes.length;
+  for (let i = 0; i < length; i++) {
+    result.push(mapper(nodes[i], i));
   }
+  return result;
 }
