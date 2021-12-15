@@ -224,23 +224,25 @@ class CompileResult {
     private customizations?: NodeCustomization[]
   ) {}
 
+  renderStack: any[] = [];
+
   render(driver: { target: RenderTarget }, context?: RenderContext) {
     const { fragment, customizations } = this;
-    const rootNodes: ChildNode[] = []; // fragment.map((x) => x.cloneNode(true) as ChildNode);
     const rootLength = +fragment.length;
+    const rootNodes: ChildNode[] = new Array(rootLength); // fragment.map((x) => x.cloneNode(true) as ChildNode);
     for (let i = 0; i < rootLength; i++)
       rootNodes[i] = fragment[i].cloneNode(true) as ChildNode;
     const renderResults: RenderResult[] = [];
 
     if (customizations) {
-      const stack: any[] = [];
+      const { renderStack: stack } = this;
+      let stackLength = 0;
 
       for (const cust of customizations) {
         const index = cust.index;
-        stack.push(rootNodes[index]);
-        stack.push(cust);
+        stack[stackLength++] = rootNodes[index];
+        stack[stackLength++] = cust;
       }
-      let stackLength = +stack.length;
       while (stackLength) {
         const cus = stack[--stackLength] as NodeCustomization;
         const target = stack[--stackLength] as ChildNode;

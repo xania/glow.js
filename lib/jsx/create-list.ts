@@ -69,6 +69,11 @@ function createMutationsObserver<T>(
         case ListMutationType.PUSH:
           disposables.push(renderPush(target, mut.values));
           break;
+        case ListMutationType.PUSH_MANY:
+          disposables.push(
+            renderPushMany(target, mut.items, mut.start, mut.count)
+          );
+          break;
         case ListMutationType.CLEAR:
           flatTree(disposables, (d) => d.dispose());
           disposables.length = 0;
@@ -80,6 +85,24 @@ function createMutationsObserver<T>(
         return rr;
         function remove() {
           flatTree(rr, (r) => r.dispose());
+        }
+      }
+      function renderPushMany(
+        target: Element,
+        items: ArrayLike<T>,
+        start: number,
+        count: number
+      ) {
+        const end = start + count;
+        let disposablesLength = disposables.length;
+        const driver = { target };
+        for (let i = start; i < end; i++) {
+          const values = items[i];
+          const rr = template.render(driver, { values, remove });
+          disposables[disposablesLength++] = rr;
+          function remove() {
+            flatTree(rr, (r) => r.dispose());
+          }
         }
       }
     },

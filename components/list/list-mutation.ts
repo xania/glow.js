@@ -2,6 +2,7 @@ import { NextObserver, Unsubscribable } from '../../lib/util/rxjs';
 
 export type ListMutation<T = unknown> =
   | PushItem<T>
+  | PushItems<T>
   | MoveItem
   | RemoveItem<T>
   | RemoveItemAt
@@ -16,6 +17,7 @@ export enum ListMutationType {
   INSERT = 3,
   RESET = 4,
   CLEAR = 5,
+  PUSH_MANY = 6,
 }
 
 interface PushItem<T> {
@@ -23,6 +25,12 @@ interface PushItem<T> {
   values: T;
 }
 
+interface PushItems<T> {
+  type: ListMutationType.PUSH_MANY;
+  items: ArrayLike<T>;
+  start: number;
+  count: number;
+}
 interface MoveItem {
   type: ListMutationType.MOVE;
   from: number;
@@ -110,9 +118,7 @@ export class ListMutationManager<T> {
     let { length } = mutationObservers;
     while (length--) {
       const observer = mutationObservers[length];
-      if (observer.next) {
-        observer.next(mut);
-      }
+      observer.next(mut);
     }
   };
 
