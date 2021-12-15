@@ -10,7 +10,7 @@ import { createDOMElement } from './render';
 import { isSubscribable } from '../driver';
 import { Subscribable } from '../util/rxjs';
 import { Expression, ExpressionType } from './expression';
-import flatten, { bottomUp } from './flatten';
+import flatten from './flatten';
 
 interface RenderTarget {
   appendChild(node: Node): void;
@@ -97,11 +97,11 @@ export function compile(rootTemplate: Template | Template[]) {
   return createResult();
 
   function createResult() {
-    const rootNodes = mapNodeList(fragment.childNodes, (node) => node);
+    const rootNodes = toArray(fragment.childNodes);
 
     const flattened = flatten(
       rootNodes.map(createNodeCustomization),
-      ({ node }) => mapNodeList(node.childNodes, createNodeCustomization)
+      ({ node }) => toArray(node.childNodes).map(createNodeCustomization)
     );
 
     const customizations = new Map<Node, NodeCustomization>();
@@ -109,9 +109,9 @@ export function compile(rootTemplate: Template | Template[]) {
     for (let i = flattened.length - 1; i >= 0; i--) {
       const cust = flattened[i];
 
-      const children = mapNodeList(cust.node.childNodes, (node) =>
-        customizations.get(node)
-      ).filter((x) => !!x) as NodeCustomization[];
+      const children = toArray(cust.node.childNodes)
+        .map((node) => customizations.get(node))
+        .filter((x) => !!x) as NodeCustomization[];
 
       if (children.length) {
         cust.children = children;
@@ -218,12 +218,6 @@ export function compile(rootTemplate: Template | Template[]) {
   }
 }
 
-interface NodeAction {
-  renderers?: Renderable[];
-  // events?: CompilationEvent[];
-  expression?: Expression;
-}
-
 class CompileResult {
   constructor(
     private fragment: Node[],
@@ -233,7 +227,7 @@ class CompileResult {
   render(driver: { target: RenderTarget }, context?: RenderContext) {
     const { fragment, customizations } = this;
     const rootNodes: ChildNode[] = []; // fragment.map((x) => x.cloneNode(true) as ChildNode);
-    const rootLength = fragment.length;
+    const rootLength = +fragment.length;
     for (let i = 0; i < rootLength; i++)
       rootNodes[i] = fragment[i].cloneNode(true) as ChildNode;
     const renderResults: RenderResult[] = [];
@@ -246,7 +240,7 @@ class CompileResult {
         stack.push(rootNodes[index]);
         stack.push(cust);
       }
-      let stackLength = stack.length;
+      let stackLength = +stack.length;
       while (stackLength) {
         const cus = stack[--stackLength] as NodeCustomization;
         const target = stack[--stackLength] as ChildNode;
@@ -272,15 +266,15 @@ class CompileResult {
           target.textContent = value;
         }
         if (children) {
-          let firstChild: ChildNode | null = null;
-          for (const childCust of children) {
-            const { index } = childCust;
+          let childLength = +children.length;
+          while (childLength--) {
+            const childCust = children[childLength];
+            const index = +childCust.index;
             const childNode =
               index === 0
-                ? (firstChild = target.firstChild as ChildNode)
+                ? (target.firstChild as ChildNode)
                 : index === 1
-                ? ((firstChild || (target.firstChild as ChildNode))
-                    .nextSibling as ChildNode)
+                ? ((target.firstChild as ChildNode).nextSibling as ChildNode)
                 : target.childNodes[index];
 
             stack[stackLength++] = childNode;
@@ -338,73 +332,12 @@ type NodeCustomization = {
 type TransformResult<T> = {
   [i: number]: VisitResult<T>;
 };
-// function transform<T>(
-//   rootNode: { childNodes: NodeListOf<ChildNode> },
-//   visitFn: (child: Node, children?: TransformResult<T>) => T | undefined
-// ): NodeCustomization {
-//   type StackItem = [result: NodeCustomization[], index: number, node: Node];
-//   let stack: StackItem[] = [];
-//   const rootResult: NodeCustomization[] = [];
-//   rootNode.childNodes.forEach((x, i) => stack.push([rootResult, i, x]));
 
-//   while (stack.length) {
-//     const [parentResult, index, node] = stack.pop() as StackItem;
-//     let visitResult = parentResult[index];
-//     if (visitResult) {
-//       const children = sanitize(visitResult.children);
-//       if (!children) {
-//         delete visitResult.children;
-//       }
-//       const visitValue = visitFn(node, children);
-//       if (visitValue) {
-//         visitResult.value = visitValue;
-//       }
-//     } else {
-//       parentResult[index] = visitResult = {};
-//       stack.push([parentResult, index, node]);
-
-//       const childNodes = node.childNodes;
-//       let length = childNodes.length;
-//       if (length) {
-//         const children: TransformResult<T> = {};
-//         visitResult.children = children;
-
-//         while (length--) {
-//           stack.push([children, length, childNodes[length]]);
-//         }
-//       }
-//     }
-//   }
-
-//   return sanitize(rootResult);
-// }
-
-function sanitize(rootCustomizations?: NodeCustomization[]) {
-  if (!rootCustomizations) return undefined;
-  const flattened = flatten(rootCustomizations, (c) => c.children);
-  let length = flattened.length;
-  const set = new Set<NodeCustomization>();
-  while (length--) {
-    const cust = flattened[length];
-    if (cust.expression) {
-      set.add(cust);
-    } else if (Array.isArray(cust.renderers) && cust.renderers.length > 0) {
-      set.add(cust);
-    } else if (Array.isArray(cust.children)) {
-      if (cust.children.some((x) => set.has(x))) set.add(cust);
-    }
-  }
-  return rootCustomizations.filter((x) => set.has(x));
-}
-
-function mapNodeList<U>(
-  nodes: NodeListOf<Node>,
-  mapper: (x: Node, i: number) => U
-) {
-  const result: U[] = [];
+function toArray<T extends Node>(nodes: NodeListOf<T>) {
+  const result: T[] = [];
   const length = nodes.length;
   for (let i = 0; i < length; i++) {
-    result.push(mapper(nodes[i], i));
+    result.push(nodes[i]);
   }
   return result;
 }
