@@ -179,7 +179,16 @@ export function compile(rootTemplate: Template | Template[]) {
   }
 
   function setAttribute(elt: Element, name: string, value: any): void {
-    if (isSubscribable(value)) {
+    if (!value) return;
+
+    if (value.type === TemplateType.Property) {
+      var attrNode = document.createAttributeNS(null, name);
+      elt.setAttributeNode(attrNode);
+      expressionsMap.set(attrNode, {
+        type: ExpressionType.Property,
+        path: value.path,
+      });
+    } else if (isSubscribable(value)) {
       renderersMap.add(elt, {
         render(ctx) {
           bind(ctx.target, value);

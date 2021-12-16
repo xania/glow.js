@@ -9,7 +9,7 @@ import { flatTree } from '../../lib/tpl';
 import { compile } from './compile';
 
 export class RowContext<T> {
-  property(name: string) {
+  property(name: keyof T) {
     return {
       type: TemplateType.Property,
       name,
