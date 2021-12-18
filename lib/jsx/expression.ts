@@ -4,5 +4,5 @@ export enum ExpressionType {
 
 export type Expression = {
   type: ExpressionType.Property;
-  path: string[];
+  name: string;
 };

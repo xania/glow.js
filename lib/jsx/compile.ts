@@ -9,11 +9,16 @@ import {
 import { createDOMElement } from './render';
 import { isSubscribable } from '../driver';
 import { Subscribable } from '../util/rxjs';
-import { Expression, ExpressionType } from './expression';
+import { Expression } from './expression';
 import flatten from './flatten';
 
 interface RenderTarget {
   appendChild(node: Node): void;
+}
+
+interface AttrExpression {
+  name: string;
+  expression: Expression;
 }
 
 type StackItem = [Node, Template | Template[]];
@@ -22,6 +27,7 @@ export function compile(rootTemplate: Template | Template[]) {
   const renderersMap = createLookup<Node, Renderable>();
   // const eventsMap = createLookup<Node, CompilationEvent>();
   const expressionsMap = new Map<Node, Expression>();
+  const attrExpressionsMap = createLookup<Node, AttrExpression>();
 
   const fragment = new DocumentFragment();
   const stack: StackItem[] = [[fragment, rootTemplate]];
@@ -86,10 +92,10 @@ export function compile(rootTemplate: Template | Template[]) {
         target.appendChild(contextNode);
         renderersMap.add(target, createFunctionRenderer(template.func));
         break;
-      case TemplateType.Property:
+      case TemplateType.Expression:
         const exprNode = document.createTextNode('');
         target.appendChild(exprNode);
-        setExpression(exprNode, template.name.split('.'));
+        setExpression(exprNode, template.expression);
         break;
     }
   }
@@ -116,7 +122,7 @@ export function compile(rootTemplate: Template | Template[]) {
       if (children.length) {
         cust.children = children;
         customizations.set(cust.node, cust);
-      } else if (cust.renderers || cust.expression) {
+      } else if (cust.renderers || cust.expression || cust.attrExpressions) {
         customizations.set(cust.node, cust);
       }
     }
@@ -139,6 +145,9 @@ export function compile(rootTemplate: Template | Template[]) {
 
       const expression = expressionsMap.get(node);
       if (expression) retval.expression = expression;
+
+      const attrExpressions = attrExpressionsMap.get(node);
+      if (attrExpressions) retval.attrExpressions = attrExpressions;
 
       // const children = mapNodeList(node.childNodes, (node) =>
       //   customizations.get(node)
@@ -171,22 +180,17 @@ export function compile(rootTemplate: Template | Template[]) {
     };
   }
 
-  function setExpression(target: Node, path: string[]) {
-    return expressionsMap.set(target, {
-      type: ExpressionType.Property,
-      path,
-    });
+  function setExpression(target: Node, expr: Expression) {
+    return expressionsMap.set(target, expr);
   }
 
   function setAttribute(elt: Element, name: string, value: any): void {
     if (!value) return;
 
-    if (value.type === TemplateType.Property) {
-      var attrNode = document.createAttributeNS(null, name);
-      elt.setAttributeNode(attrNode);
-      expressionsMap.set(attrNode, {
-        type: ExpressionType.Property,
-        path: value.path,
+    if (value.type === TemplateType.Expression) {
+      attrExpressionsMap.add(elt, {
+        name,
+        expression: value.expression,
       });
     } else if (isSubscribable(value)) {
       renderersMap.add(elt, {
@@ -237,6 +241,7 @@ class CompileResult {
 
   render(driver: { target: RenderTarget }, context?: RenderContext) {
     const { fragment, customizations } = this;
+    const values = context?.values;
     const rootLength = +fragment.length;
     const rootNodes: ChildNode[] = new Array(rootLength); // fragment.map((x) => x.cloneNode(true) as ChildNode);
     for (let i = 0; i < rootLength; i++)
@@ -256,7 +261,7 @@ class CompileResult {
         const cus = stack[--stackLength] as NodeCustomization;
         const target = stack[--stackLength] as ChildNode;
 
-        const { renderers, expression, children } = cus;
+        const { renderers, expression, children, attrExpressions } = cus;
         if (renderers) {
           let { length } = renderers;
           const driver = { target };
@@ -267,15 +272,22 @@ class CompileResult {
           }
         }
 
-        if (expression && context) {
-          let value = context.values;
-          const { path } = expression;
-          const pathLength = path.length;
-          for (let i = 0; i < pathLength; i++) {
-            value = value[path[i]];
+        if (values) {
+          if (expression && values) {
+            const { name } = expression;
+            target.textContent = values[name];
           }
-          target.textContent = value;
+
+          if (attrExpressions) {
+            let length = attrExpressions.length;
+            while (length--) {
+              const { name, expression } = attrExpressions[length];
+              const attrValue = values[expression.name];
+              if (attrValue) (target as Element).setAttribute(name, attrValue);
+            }
+          }
         }
+
         if (children) {
           let childLength = +children.length;
           while (childLength--) {
@@ -339,6 +351,7 @@ type NodeCustomization = {
   renderers?: Renderable[];
   // events?: CompilationEvent[];
   children?: NodeCustomization[];
+  attrExpressions?: AttrExpression[];
 };
 type TransformResult<T> = {
   [i: number]: VisitResult<T>;

@@ -1,4 +1,9 @@
-import { Template, TemplateType, RenderContext } from './template';
+import {
+  Template,
+  TemplateType,
+  RenderContext,
+  ExpressionTemplate,
+} from './template';
 import {
   ListMutation,
   ListMutationManager,
@@ -7,12 +12,16 @@ import {
 import { flatTree } from '../../lib/tpl';
 
 import { compile } from './compile';
+import { ExpressionType } from './expression';
 
 export class RowContext<T> {
-  property(name: keyof T) {
+  property(name: keyof T & string): ExpressionTemplate {
     return {
-      type: TemplateType.Property,
-      name,
+      type: TemplateType.Expression,
+      expression: {
+        type: ExpressionType.Property,
+        name,
+      },
     };
   }
   get<U>(getter: (row: T) => U) {

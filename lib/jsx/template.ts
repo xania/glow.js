@@ -1,4 +1,5 @@
 import { Subscribable } from '../util/rxjs';
+import { Expression } from './expression';
 
 export interface Disposable {
   dispose(): void;
@@ -12,7 +13,7 @@ export enum TemplateType {
   DOM,
   Renderable,
   Context,
-  Property,
+  Expression,
 }
 
 export enum AttributeType {
@@ -61,9 +62,9 @@ interface ContextTemplate {
   func: (context: any) => any;
 }
 
-interface PropertyTemplate {
-  type: TemplateType.Property;
-  name: string;
+export interface ExpressionTemplate {
+  type: TemplateType.Expression;
+  expression: Expression;
 }
 
 export type RenderResult = Disposable | RenderResult[] | void;
@@ -87,4 +88,4 @@ export type Template =
   | DomTemplate
   | ContextTemplate
   | RenderableTemplate
-  | PropertyTemplate;
+  | ExpressionTemplate;
