@@ -1,9 +1,4 @@
-import {
-  Template,
-  TemplateType,
-  RenderContext,
-  ExpressionTemplate,
-} from './template';
+import { Template, TemplateType, ExpressionTemplate } from './template';
 import {
   ListMutation,
   ListMutationManager,
@@ -68,7 +63,12 @@ export function createList<T>() {
 function createMutationsObserver<T>(
   target: Element,
   template: {
-    render: (driver: { target: any }, context: RenderContext) => unknown;
+    render: (
+      target: Element,
+      items: ArrayLike<T>,
+      start: number,
+      count: number
+    ) => unknown;
   }
 ) {
   const disposables: any[] = [];
@@ -76,11 +76,11 @@ function createMutationsObserver<T>(
     next(mut: ListMutation<T>) {
       switch (mut.type) {
         case ListMutationType.PUSH:
-          disposables.push(renderPush(target, mut.values));
+          disposables.push(template.render(target, [mut.values], 0, 1));
           break;
         case ListMutationType.PUSH_MANY:
           disposables.push(
-            renderPushMany(target, mut.items, mut.start, mut.count)
+            template.render(target, mut.items, mut.start, mut.count)
           );
           break;
         case ListMutationType.CLEAR:
@@ -89,31 +89,13 @@ function createMutationsObserver<T>(
           break;
       }
 
-      function renderPush(target: Element, values: T) {
-        const rr = template.render({ target }, { values, remove });
-        return rr;
-        function remove() {
-          flatTree(rr, (r) => r.dispose());
-        }
-      }
-      function renderPushMany(
-        target: Element,
-        items: ArrayLike<T>,
-        start: number,
-        count: number
-      ) {
-        const end = start + count;
-        let disposablesLength = disposables.length;
-        const driver = { target };
-        for (let i = start; i < end; i++) {
-          const values = items[i];
-          const rr = template.render(driver, { values, remove });
-          disposables[disposablesLength++] = rr;
-          function remove() {
-            flatTree(rr, (r) => r.dispose());
-          }
-        }
-      }
+      // function renderPush(target: Element, values: T) {
+      //   const rr = template.render(target, [values], 0, 1);
+      //   return rr;
+      //   function remove() {
+      //     flatTree(rr, (r) => r.dispose());
+      //   }
+      // }
     },
   };
 }

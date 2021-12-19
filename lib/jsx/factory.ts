@@ -149,9 +149,10 @@ export function asTemplate(value: any): Template | Template[] {
       type: TemplateType.DOM,
       node: value,
     };
-  else if (typeof value === 'function') {
-    return createFunctionRenderer(value);
-  } else if (isRenderable(value)) {
+  // else if (typeof value === 'function') {
+  //   return createFunctionRenderer(value);
+  // }
+  else if (isRenderable(value)) {
     return {
       type: TemplateType.Renderable,
       renderer: value,
@@ -244,14 +245,14 @@ function isDomNode(obj: any): obj is Node {
   }
 }
 
-export function createFunctionRenderer(func: Function): RenderableTemplate {
-  return {
-    type: TemplateType.Renderable,
-    renderer: {
-      render(driver: any, context: RenderContext) {
-        const templates = flatTree(func.apply(null, [context]), asTemplate);
-        return compile(templates).render(driver.target, undefined);
-      },
-    },
-  };
-}
+// export function createFunctionRenderer(func: Function): RenderableTemplate {
+//   return {
+//     type: TemplateType.Renderable,
+//     renderer: {
+//       render(driver: any, context: RenderContext) {
+//         const templates = flatTree(func.apply(null, [context]), asTemplate);
+//         return compile(templates).render(driver.target, undefined);
+//       },
+//     },
+//   };
+// }

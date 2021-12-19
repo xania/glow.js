@@ -4,13 +4,18 @@ import {
   Template,
   Renderable,
   RenderResult,
-  RenderContext,
 } from './template';
 import { createDOMElement } from './render';
 import { isSubscribable } from '../driver';
 import { Subscribable } from '../util/rxjs';
 import { Expression } from './expression';
 import flatten from './flatten';
+
+export interface RenderProps {
+  items: ArrayLike<unknown>;
+  start: number;
+  count: number;
+}
 
 interface RenderTarget {
   appendChild(node: Node): void;
@@ -233,91 +238,106 @@ export function compile(rootTemplate: Template | Template[]) {
 
 class CompileResult {
   constructor(
-    private fragment: Node[],
+    private templateNodes: Node[],
     private customizations?: NodeCustomization[]
   ) {}
 
   renderStack: any[] = [];
 
-  render(driver: { target: RenderTarget }, context?: RenderContext) {
-    const { fragment, customizations } = this;
-    const values = context?.values;
-    const rootLength = +fragment.length;
-    const rootNodes: ChildNode[] = new Array(rootLength); // fragment.map((x) => x.cloneNode(true) as ChildNode);
-    for (let i = 0; i < rootLength; i++)
-      rootNodes[i] = fragment[i].cloneNode(true) as ChildNode;
+  render(
+    rootTarget: RenderTarget,
+    items: ArrayLike<any>,
+    start: number = 0,
+    count: number = items.length - start
+  ) {
+    const { templateNodes, customizations } = this;
+    const rootLength = +templateNodes.length;
+
+    const end = start + count;
     const renderResults: RenderResult[] = [];
+    for (let n = start; n < end; n++) {
+      const values = items[n];
 
-    if (customizations) {
-      const { renderStack: stack } = this;
-      let stackLength = 0;
+      const rootNodes: ChildNode[] = new Array(rootLength);
+      for (let i = 0; i < rootLength; i++)
+        rootNodes[i] = templateNodes[i].cloneNode(true) as ChildNode;
 
-      for (const cust of customizations) {
-        const index = cust.index;
-        stack[stackLength++] = rootNodes[index];
-        stack[stackLength++] = cust;
-      }
-      while (stackLength) {
-        const cus = stack[--stackLength] as NodeCustomization;
-        const target = stack[--stackLength] as ChildNode;
+      if (customizations) {
+        const { renderStack: stack } = this;
+        let stackLength = 0;
 
-        const { renderers, expression, children, attrExpressions } = cus;
-        if (renderers) {
-          let { length } = renderers;
-          const driver = { target };
-          while (length--) {
-            const renderer = renderers[length];
-            const rr = renderer.render(driver, context);
-            renderResults.push(rr);
-          }
+        for (const cust of customizations) {
+          const index = cust.index;
+          stack[stackLength++] = rootNodes[index];
+          stack[stackLength++] = cust;
         }
+        while (stackLength) {
+          const cus = stack[--stackLength] as NodeCustomization;
+          const target = stack[--stackLength] as ChildNode;
 
-        if (values) {
-          if (expression && values) {
-            const { name } = expression;
-            target.textContent = values[name];
+          const { renderers, expression, children, attrExpressions } = cus;
+          if (renderers) {
+            let { length } = renderers;
+            const driver = { target };
+            while (length--) {
+              const renderer = renderers[length];
+              const rr = renderer.render(driver, {
+                values,
+                remove() {
+                  console.log(12345678);
+                },
+              });
+              renderResults.push(rr);
+            }
           }
 
-          if (attrExpressions) {
-            let length = attrExpressions.length;
-            while (length--) {
-              const { name, expression } = attrExpressions[length];
-              const attrValue = values[expression.name];
-              if (attrValue) (target as Element).setAttribute(name, attrValue);
+          if (values) {
+            if (expression && values) {
+              const { name } = expression;
+              target.textContent = values[name];
+            }
+
+            if (attrExpressions) {
+              let length = attrExpressions.length;
+              while (length--) {
+                const { name, expression } = attrExpressions[length];
+                const attrValue = values[expression.name];
+                if (attrValue)
+                  (target as Element).setAttribute(name, attrValue);
+              }
+            }
+          }
+
+          if (children) {
+            let childLength = +children.length;
+            while (childLength--) {
+              const childCust = children[childLength];
+              const index = +childCust.index;
+              const childNode =
+                index === 0
+                  ? (target.firstChild as ChildNode)
+                  : index === 1
+                  ? ((target.firstChild as ChildNode).nextSibling as ChildNode)
+                  : target.childNodes[index];
+
+              stack[stackLength++] = childNode;
+              stack[stackLength++] = childCust;
             }
           }
         }
-
-        if (children) {
-          let childLength = +children.length;
-          while (childLength--) {
-            const childCust = children[childLength];
-            const index = +childCust.index;
-            const childNode =
-              index === 0
-                ? (target.firstChild as ChildNode)
-                : index === 1
-                ? ((target.firstChild as ChildNode).nextSibling as ChildNode)
-                : target.childNodes[index];
-
-            stack[stackLength++] = childNode;
-            stack[stackLength++] = childCust;
-          }
-        }
       }
-    }
 
-    const rootTarget = driver.target;
-    for (let i = 0; i < rootLength; i++) {
-      rootTarget.appendChild(rootNodes[i]);
+      for (let i = 0; i < rootLength; i++) {
+        rootTarget.appendChild(rootNodes[i]);
+      }
+      renderResults.push({
+        dispose() {
+          for (const root of rootNodes) {
+            root.remove();
+          }
+        },
+      });
     }
-    renderResults.push({
-      dispose() {
-        for (const root of rootNodes) {
-          root.remove();
-        }
-      },
-    });
     return renderResults;
   }
 }
