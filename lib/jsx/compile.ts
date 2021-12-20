@@ -239,7 +239,7 @@ export function compile(rootTemplate: Template | Template[]) {
 class CompileResult {
   constructor(
     private templateNodes: Node[],
-    private customizations?: NodeCustomization[]
+    private customizations: NodeCustomization[] = []
   ) {}
 
   renderStack: any[] = [];
@@ -251,10 +251,11 @@ class CompileResult {
     count: number = items.length - start
   ) {
     const { templateNodes, customizations } = this;
-    const rootLength = +templateNodes.length;
+    const rootLength = templateNodes.length | 0;
 
-    const end = start + count;
+    const end = (start + count) | 0;
     const renderResults: RenderResult[] = [];
+    let renderResultsLength = 0;
     for (let n = start; n < end; n++) {
       const values = items[n];
 
@@ -262,88 +263,103 @@ class CompileResult {
       for (let i = 0; i < rootLength; i++)
         rootNodes[i] = templateNodes[i].cloneNode(true) as ChildNode;
 
-      if (customizations) {
-        const { renderStack: stack } = this;
-        let stackLength = 0;
+      const { renderStack: stack } = this;
+      let stackLength = 0;
 
-        for (const cust of customizations) {
-          const index = cust.index;
-          stack[stackLength++] = rootNodes[index];
-          stack[stackLength++] = cust;
-        }
-        while (stackLength) {
-          const cus = stack[--stackLength] as NodeCustomization;
-          const target = stack[--stackLength] as ChildNode;
+      const custLength = customizations.length | 0;
+      for (let i = 0; i < custLength; i = (i + 1) | 0) {
+        const cust = customizations[i];
+        const index = cust.index | 0;
+        stack[stackLength] = rootNodes[index];
+        stackLength = (stackLength + 1) | 0;
+        stack[stackLength] = cust;
+        stackLength = (stackLength + 1) | 0;
+      }
+      while (stackLength) {
+        stackLength = (stackLength - 1) | 0;
+        const cus = stack[stackLength] as NodeCustomization;
+        stackLength = (stackLength - 1) | 0;
+        const target = stack[stackLength] as ChildNode;
 
-          const { renderers, expression, children, attrExpressions } = cus;
-          if (renderers) {
-            let { length } = renderers;
+        const { renderers, expression, children, attrExpressions } = cus;
+        if (renderers) {
+          let { length } = renderers;
+          if (length | 0) {
             const driver = { target };
+            const renderContext = {
+              values,
+              remove() {
+                console.log(12345678);
+              },
+            };
             while (length--) {
               const renderer = renderers[length];
-              const rr = renderer.render(driver, {
-                values,
-                remove() {
-                  console.log(12345678);
-                },
-              });
-              renderResults.push(rr);
+              renderResults[renderResultsLength++] = renderer.render(
+                driver,
+                renderContext
+              );
+            }
+          }
+        }
+
+        if (values) {
+          if (expression && values) {
+            switch (expression.type) {
+              case ExpressionType.Property:
+                target.textContent = values[expression.name];
+                break;
             }
           }
 
-          if (values) {
-            if (expression && values) {
+          if (attrExpressions) {
+            let length = attrExpressions.length | 0;
+            while (length) {
+              length = (length - 1) | 0;
+              const { name, expression } = attrExpressions[length];
               switch (expression.type) {
                 case ExpressionType.Property:
-                  target.textContent = values[expression.name];
+                  const attrValue = values[expression.name];
+                  if (attrValue)
+                    (target as Element).setAttribute(name, attrValue);
                   break;
               }
             }
-
-            if (attrExpressions) {
-              let length = attrExpressions.length;
-              while (length--) {
-                const { name, expression } = attrExpressions[length];
-                switch (expression.type) {
-                  case ExpressionType.Property:
-                    const attrValue = values[expression.name];
-                    if (attrValue)
-                      (target as Element).setAttribute(name, attrValue);
-                    break;
-                }
-              }
-            }
           }
+        }
 
-          if (children) {
-            let childLength = +children.length;
-            while (childLength--) {
-              const childCust = children[childLength];
-              const index = +childCust.index;
-              const childNode =
-                index === 0
-                  ? (target.firstChild as ChildNode)
-                  : index === 1
-                  ? ((target.firstChild as ChildNode).nextSibling as ChildNode)
-                  : target.childNodes[index];
+        if (children) {
+          let childLength = +children.length | 0;
+          while (childLength) {
+            childLength = (childLength - 1) | 0;
+            const childCust = children[childLength];
+            const index = +childCust.index | 0;
+            const childNode =
+              index === 0
+                ? (target.firstChild as ChildNode)
+                : index === 1
+                ? ((target.firstChild as ChildNode).nextSibling as ChildNode)
+                : target.childNodes[index];
 
-              stack[stackLength++] = childNode;
-              stack[stackLength++] = childCust;
-            }
+            stack[stackLength] = childNode;
+            stackLength = (stackLength + 1) | 0;
+            stack[stackLength] = childCust;
+            stackLength = (stackLength + 1) | 0;
           }
         }
       }
 
-      for (let i = 0; i < rootLength; i++) {
+      for (let i = 0; i < rootLength; i = (i + 1) | 0) {
         rootTarget.appendChild(rootNodes[i]);
       }
-      renderResults.push({
+      renderResults[renderResultsLength++] = {
         dispose() {
-          for (const root of rootNodes) {
-            root.remove();
+          let length = rootNodes.length | 0;
+          while (length) {
+            length = (length - 1) | 0;
+            rootNodes[length].remove();
           }
         },
-      });
+      };
     }
     return renderResults;
   }

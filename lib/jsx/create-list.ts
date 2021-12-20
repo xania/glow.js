@@ -40,9 +40,9 @@ export class RowContext<T> {
   remove(context: { remove: Function }) {
     if (context?.remove) context.remove();
   }
-  call(func: (row: T) => void) {
+  call(func: (row: T, element: Element) => void) {
     return function (context: { values: T }) {
-      func(context.values);
+      func(context.values, null as any);
     };
   }
 }
