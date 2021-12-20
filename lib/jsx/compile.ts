@@ -8,7 +8,7 @@ import {
 import { createDOMElement } from './render';
 import { isSubscribable } from '../driver';
 import { Subscribable } from '../util/rxjs';
-import { Expression } from './expression';
+import { Expression, ExpressionType } from './expression';
 import flatten from './flatten';
 
 export interface RenderProps {
@@ -293,17 +293,24 @@ class CompileResult {
 
           if (values) {
             if (expression && values) {
-              const { name } = expression;
-              target.textContent = values[name];
+              switch (expression.type) {
+                case ExpressionType.Property:
+                  target.textContent = values[expression.name];
+                  break;
+              }
             }
 
             if (attrExpressions) {
               let length = attrExpressions.length;
               while (length--) {
                 const { name, expression } = attrExpressions[length];
-                const attrValue = values[expression.name];
-                if (attrValue)
-                  (target as Element).setAttribute(name, attrValue);
+                switch (expression.type) {
+                  case ExpressionType.Property:
+                    const attrValue = values[expression.name];
+                    if (attrValue)
+                      (target as Element).setAttribute(name, attrValue);
+                    break;
+                }
               }
             }
           }

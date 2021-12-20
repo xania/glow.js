@@ -17,6 +17,18 @@ export class RowContext<T> {
         type: ExpressionType.Property,
         name,
       },
+      async() {
+        return {
+          type: TemplateType.Expression,
+          expression: {
+            type: ExpressionType.Async,
+            observable: this.expression,
+          },
+          async(): any {
+            throw Error('Not yet implemented');
+          },
+        };
+      },
     };
   }
   get<U>(getter: (row: T) => U) {

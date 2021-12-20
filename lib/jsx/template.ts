@@ -65,6 +65,7 @@ interface ContextTemplate {
 export interface ExpressionTemplate {
   type: TemplateType.Expression;
   expression: Expression;
+  async(): ExpressionTemplate;
 }
 
 export type RenderResult = Disposable | RenderResult[] | void;
