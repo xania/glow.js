@@ -1,4 +1,5 @@
 import { Expression } from './expression';
+import { Renderable } from './template';
 
 export enum DomOperationType {
   PushFirstChild,
@@ -7,6 +8,7 @@ export enum DomOperationType {
   PopNode,
   SetAttribute,
   SetTextContent,
+  Renderable,
 }
 
 export interface PushFirstChildOperation {
@@ -24,10 +26,17 @@ export interface PopNodeOperation {
 }
 export interface SetAttributeOperation {
   type: DomOperationType.SetAttribute;
+  name: string;
+  expression: Expression;
 }
 export interface SetTextContentOperation {
   type: DomOperationType.SetTextContent;
   expression: Expression;
+}
+
+export interface RenderableOperation {
+  type: DomOperationType.Renderable;
+  renderable: Renderable;
 }
 
 export type DomOperation =
@@ -36,4 +45,5 @@ export type DomOperation =
   | PushChildOperation
   | PopNodeOperation
   | SetAttributeOperation
-  | SetTextContentOperation;
+  | SetTextContentOperation
+  | RenderableOperation;

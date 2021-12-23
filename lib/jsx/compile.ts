@@ -30,10 +30,10 @@ interface AttrExpression {
 type StackItem = [Node, Template | Template[]];
 
 export function compile(rootTemplate: Template | Template[]) {
-  const renderersMap = createLookup<Node, Renderable>();
+  // const renderersMap = createLookup<Node, Renderable>();
   // const eventsMap = createLookup<Node, CompilationEvent>();
   // const expressionsMap = new Map<Node, Expression>();
-  const attrExpressionsMap = createLookup<Node, AttrExpression>();
+  // const attrExpressionsMap = createLookup<Node, AttrExpression>();
   const operationsMap = createLookup<Node, DomOperation>();
 
   const fragment = new DocumentFragment();
@@ -74,30 +74,39 @@ export function compile(rootTemplate: Template | Template[]) {
         target.appendChild(textNode);
         break;
       case TemplateType.Renderable:
-        renderersMap.add(target, template.renderer);
+        operationsMap.add(target, {
+          type: DomOperationType.Renderable,
+          renderable: template.renderer,
+        });
         break;
       case TemplateType.Subscribable:
         const asyncNode = document.createTextNode('');
         target.appendChild(asyncNode);
-        renderersMap.add(asyncNode, {
-          render({ target }) {
-            const subscr = template.value.subscribe({
-              next(x) {
-                target.textContent = x;
-              },
-            });
-            return {
-              dispose() {
-                subscr.unsubscribe();
-              },
-            };
+        operationsMap.add(asyncNode, {
+          type: DomOperationType.Renderable,
+          renderable: {
+            render({ target }) {
+              const subscr = template.value.subscribe({
+                next(x) {
+                  target.textContent = x;
+                },
+              });
+              return {
+                dispose() {
+                  subscr.unsubscribe();
+                },
+              };
+            },
           },
         });
         break;
       case TemplateType.Context:
         const contextNode = document.createTextNode('');
         target.appendChild(contextNode);
-        renderersMap.add(target, createFunctionRenderer(template.func));
+        operationsMap.add(target, {
+          type: DomOperationType.Renderable,
+          renderable: createFunctionRenderer(template.func),
+        });
         break;
       case TemplateType.Expression:
         const exprNode = document.createTextNode('');
@@ -127,14 +136,9 @@ export function compile(rootTemplate: Template | Template[]) {
         .map((node) => customizations.get(node))
         .filter((x) => !!x) as NodeCustomization[];
 
-      const { renderers, operations, attrExpressions } = cust;
+      const { operations } = cust;
 
-      if (
-        children.length ||
-        renderers ||
-        operations.length ||
-        attrExpressions
-      ) {
+      if (children.length || operations.length) {
         customizations.set(cust.node, cust);
 
         if (children.length) {
@@ -223,14 +227,11 @@ export function compile(rootTemplate: Template | Template[]) {
     ): NodeCustomization {
       const retval: NodeCustomization = { node, index, operations: [] };
 
-      const renderers = renderersMap.get(node);
-      if (renderers) retval.renderers = renderers;
-
       // const expression = expressionsMap.get(node);
       // if (expression) retval.textContentExpr = expression;
 
-      const attrExpressions = attrExpressionsMap.get(node);
-      if (attrExpressions) retval.attrExpressions = attrExpressions;
+      const operations = operationsMap.get(node);
+      if (operations) retval.operations = operations;
 
       // const children = mapNodeList(node.childNodes, (node) =>
       //   customizations.get(node)
@@ -274,27 +275,34 @@ export function compile(rootTemplate: Template | Template[]) {
     if (!value) return;
 
     if (value.type === TemplateType.Expression) {
-      attrExpressionsMap.add(elt, {
+      operationsMap.add(elt, {
+        type: DomOperationType.SetAttribute,
         name,
         expression: value.expression,
       });
     } else if (isSubscribable(value)) {
-      renderersMap.add(elt, {
-        render(ctx) {
-          bind(ctx.target, value);
+      operationsMap.add(elt, {
+        type: DomOperationType.Renderable,
+        renderable: {
+          render(ctx) {
+            bind(ctx.target, value);
+          },
         },
       });
     } else if (typeof value === 'function') {
       const func = value;
-      renderersMap.add(elt, {
-        render(ctx, args) {
-          const value = func(args);
+      operationsMap.add(elt, {
+        type: DomOperationType.Renderable,
+        renderable: {
+          render(ctx, args) {
+            const value = func(args);
 
-          if (isSubscribable(value)) {
-            bind(ctx.target, value);
-          } else {
-            ctx.target.setAttribute(name, value);
-          }
+            if (isSubscribable(value)) {
+              bind(ctx.target, value);
+            } else {
+              ctx.target.setAttribute(name, value);
+            }
+          },
         },
       });
     } else {
@@ -362,26 +370,26 @@ class CompileResult {
         stackLength = (stackLength - 1) | 0;
         const target = stack[stackLength] as ChildNode;
 
-        const { renderers, children, attrExpressions } = cus;
-        if (renderers) {
-          let { length } = renderers;
-          if (length | 0) {
-            const driver = { target };
-            const renderContext = {
-              values,
-              remove() {
-                console.log(12345678);
-              },
-            };
-            while (length--) {
-              const renderer = renderers[length];
-              renderResults[renderResultsLength++] = renderer.render(
-                driver,
-                renderContext
-              );
-            }
-          }
-        }
+        const { children } = cus;
+        // if (renderers) {
+        //   let { length } = renderers;
+        //   if (length | 0) {
+        //     const driver = { target };
+        //     const renderContext = {
+        //       values,
+        //       remove() {
+        //         console.log(12345678);
+        //       },
+        //     };
+        //     while (length--) {
+        //       const renderer = renderers[length];
+        //       renderResults[renderResultsLength++] = renderer.render(
+        //         driver,
+        //         renderContext
+        //       );
+        //     }
+        //   }
+        // }
 
         if (values) {
           // if (textContentExpr && values) {
@@ -391,21 +399,20 @@ class CompileResult {
           //       break;
           //   }
           // }
-
-          if (attrExpressions) {
-            let length = attrExpressions.length | 0;
-            while (length) {
-              length = (length - 1) | 0;
-              const { name, expression } = attrExpressions[length];
-              switch (expression.type) {
-                case ExpressionType.Property:
-                  const attrValue = values[expression.name];
-                  if (attrValue)
-                    (target as Element).setAttribute(name, attrValue);
-                  break;
-              }
-            }
-          }
+          // if (attrExpressions) {
+          //   let length = attrExpressions.length | 0;
+          //   while (length) {
+          //     length = (length - 1) | 0;
+          //     const { name, expression } = attrExpressions[length];
+          //     switch (expression.type) {
+          //       case ExpressionType.Property:
+          //         const attrValue = values[expression.name];
+          //         if (attrValue)
+          //           (target as Element).setAttribute(name, attrValue);
+          //         break;
+          //     }
+          //   }
+          // }
         }
 
         if (children) {
@@ -471,11 +478,7 @@ type VisitResult<T> = {
 type NodeCustomization = {
   index: number;
   node: Node;
-  // textContentExpr?: Expression;
-  renderers?: Renderable[];
-  // events?: CompilationEvent[];
   children?: NodeCustomization[];
-  attrExpressions?: AttrExpression[];
   operations: DomOperation[];
 };
 type TransformResult<T> = {
