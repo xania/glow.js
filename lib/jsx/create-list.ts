@@ -1,10 +1,14 @@
-import { Template, TemplateType, ExpressionTemplate } from './template';
+import {
+  Template,
+  TemplateType,
+  ExpressionTemplate,
+  RenderResult,
+} from './template';
 import {
   ListMutation,
   ListMutationManager,
   ListMutationType,
 } from '../../components';
-import { flatTree } from '../../lib/tpl';
 
 import { compile } from './compile';
 import { ExpressionType } from './expression';
@@ -80,10 +84,10 @@ function createMutationsObserver<T>(
       items: ArrayLike<T>,
       start: number,
       count: number
-    ) => unknown;
+    ) => RenderResult;
   }
 ) {
-  const disposables: any[] = [];
+  const disposables: RenderResult[] = [];
   return {
     next(mut: ListMutation<T>) {
       switch (mut.type) {
@@ -96,7 +100,26 @@ function createMutationsObserver<T>(
           );
           break;
         case ListMutationType.CLEAR:
-          flatTree(disposables, (d) => d.dispose());
+          const stack: RenderResult[] = [];
+          let stackLength = 0;
+          for (let i = 0, len = disposables.length; i < len; i++) {
+            stack[0] = disposables[i];
+            stackLength = 1;
+
+            while (stackLength--) {
+              const curr = stack[stackLength] as RenderResult;
+              if (!curr) continue;
+              if (Array.isArray(curr)) {
+                for (const x of curr) {
+                  stack[stackLength++] = x;
+                }
+              } else if ('remove' in curr) {
+                curr.remove();
+              } else if ('dispose' in curr) {
+                curr.dispose();
+              }
+            }
+          }
           disposables.length = 0;
           break;
       }

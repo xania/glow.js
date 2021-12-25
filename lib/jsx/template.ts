@@ -5,6 +5,10 @@ export interface Disposable {
   dispose(): void;
 }
 
+export interface Removable {
+  remove(): void;
+}
+
 export enum TemplateType {
   Text,
   Tag,
@@ -68,7 +72,7 @@ export interface ExpressionTemplate {
   async(): ExpressionTemplate;
 }
 
-export type RenderResult = Disposable | RenderResult[] | void;
+export type RenderResult = Disposable | Removable | RenderResult[] | void;
 export interface RenderContext {
   values: any;
   remove(): unknown;

@@ -138,7 +138,7 @@ export function compile(rootTemplate: Template | Template[]) {
 
         if (
           children.length === 1 &&
-          children[0].node.nodeType === 3 &&
+          children[0].node.nodeType === Node.TEXT_NODE &&
           children[0].operations.length === 1 &&
           children[0].operations[0].type === DomOperationType.SetTextContent
         ) {
@@ -286,7 +286,7 @@ class CompileResult {
     rootTarget: RenderTarget,
     items: ArrayLike<any>,
     start: number = 0,
-    count: number = items.length - start
+    count: number = (items.length - start) | 0
   ) {
     const { templateNodes, customizations } = this;
     const rootLength = templateNodes.length | 0;
@@ -296,24 +296,16 @@ class CompileResult {
     const renderResults: RenderResult[] = new Array(count);
     const { renderStack } = this;
 
-    for (let n = start; n < end; n++) {
+    for (let n = start; n < end; n = (n + 1) | 0) {
       const values = items[n];
 
       const rootNodes: ChildNode[] = new Array(rootLength);
-      for (let i = 0; i < rootLength; i++) {
+      for (let i = 0; i < rootLength; i = (i + 1) | 0) {
         const rootNode = templateNodes[i].cloneNode(true) as ChildNode;
         rootTarget.appendChild(rootNode);
         rootNodes[i] = rootNode;
 
-        renderResults[renderResultsLength++] = {
-          dispose() {
-            let length = rootNodes.length | 0;
-            while (length) {
-              length = (length - 1) | 0;
-              rootNodes[length].remove();
-            }
-          },
-        };
+        renderResults[renderResultsLength++] = rootNodes;
 
         const cust = customizations[i];
         if (!cust) continue;
@@ -321,7 +313,7 @@ class CompileResult {
         renderStack[0] = rootNode;
         let stackLength = 1;
         const operations = cust.operations;
-        for (let n = 0, len = operations.length | 0; n < len; n++) {
+        for (let n = 0, len = operations.length | 0; n < len; n = (n + 1) | 0) {
           const operation = operations[n];
           const curr = renderStack[stackLength - 1];
           switch (operation.type) {
@@ -342,7 +334,7 @@ class CompileResult {
                 const textContentExpr = operation.expression;
                 switch (textContentExpr.type) {
                   case ExpressionType.Property:
-                    curr.textContent = values[textContentExpr.name];
+                    curr.textContent = values[textContentExpr.name].value;
                     break;
                 }
               }
