@@ -145,7 +145,6 @@ export function compile(rootTemplate: Template | Template[]) {
           const child = children[0];
           child.node.remove();
           operations.push(child.operations[0]);
-          console.log(children[0].node.nodeType);
         } else if (children.length) {
           let prevIndex = -1;
 
