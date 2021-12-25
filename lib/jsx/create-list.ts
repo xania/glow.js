@@ -117,6 +117,8 @@ function createMutationsObserver<T>(
                 curr.remove();
               } else if ('dispose' in curr) {
                 curr.dispose();
+              } else if ('unsubscribe' in curr) {
+                curr.unsubscribe();
               }
             }
           }

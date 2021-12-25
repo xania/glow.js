@@ -299,13 +299,13 @@ class CompileResult {
     for (let n = start; n < end; n = (n + 1) | 0) {
       const values = items[n];
 
-      const rootNodes: ChildNode[] = new Array(rootLength);
+      const renderResult: RenderResult = new Array(rootLength);
       for (let i = 0; i < rootLength; i = (i + 1) | 0) {
         const rootNode = templateNodes[i].cloneNode(true) as ChildNode;
         rootTarget.appendChild(rootNode);
-        rootNodes[i] = rootNode;
+        renderResult[i] = rootNode;
 
-        renderResults[renderResultsLength++] = rootNodes;
+        renderResults[renderResultsLength++] = renderResult;
 
         const cust = customizations[i];
         if (!cust) continue;
@@ -334,7 +334,20 @@ class CompileResult {
                 const textContentExpr = operation.expression;
                 switch (textContentExpr.type) {
                   case ExpressionType.Property:
-                    curr.textContent = values[textContentExpr.name].value;
+                    const value = values[textContentExpr.name];
+                    if (value) {
+                      if ('subscribe' in value) {
+                        const subsr = value.subscribe({
+                          next(v: any) {
+                            curr.textContent = v;
+                          },
+                        });
+                        renderResult.push(subsr);
+                      } else {
+                        curr.textContent = value;
+                      }
+                    }
+
                     break;
                 }
               }

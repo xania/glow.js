@@ -1,4 +1,4 @@
-import { Subscribable } from '../util/rxjs';
+import { Subscribable, Unsubscribable } from '../util/rxjs';
 import { Expression } from './expression';
 
 export interface Disposable {
@@ -72,7 +72,12 @@ export interface ExpressionTemplate {
   async(): ExpressionTemplate;
 }
 
-export type RenderResult = Disposable | Removable | RenderResult[] | void;
+export type RenderResult =
+  | Unsubscribable
+  | Disposable
+  | Removable
+  | RenderResult[]
+  | void;
 export interface RenderContext {
   values: any;
   remove(): unknown;
