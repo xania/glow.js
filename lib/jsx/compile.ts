@@ -277,7 +277,7 @@ export function compile(rootTemplate: Template | Template[]) {
 class CompileResult {
   constructor(
     private templateNodes: Node[],
-    private customizations: NodeCustomization[] = []
+    private customizations: (NodeCustomization | undefined)[] = []
   ) {}
 
   renderStack: ChildNode[] = [];
@@ -294,6 +294,8 @@ class CompileResult {
     const end = (start + count) | 0;
     let renderResultsLength = 0;
     const renderResults: RenderResult[] = new Array(count);
+    const { renderStack } = this;
+
     for (let n = start; n < end; n++) {
       const values = items[n];
 
@@ -302,26 +304,35 @@ class CompileResult {
         const rootNode = templateNodes[i].cloneNode(true) as ChildNode;
         rootTarget.appendChild(rootNode);
         rootNodes[i] = rootNode;
-      }
 
-      const { renderStack: stack } = this;
+        renderResults[renderResultsLength++] = {
+          dispose() {
+            let length = rootNodes.length | 0;
+            while (length) {
+              length = (length - 1) | 0;
+              rootNodes[length].remove();
+            }
+          },
+        };
 
-      const custLength = customizations.length | 0;
-      for (let i = 0; i < custLength; i = (i + 1) | 0) {
         const cust = customizations[i];
-        stack[0] = rootNodes[cust.index | 0];
+        if (!cust) continue;
+
+        renderStack[0] = rootNode;
         let stackLength = 1;
-        for (const operation of cust.operations as DomOperation[]) {
-          const curr = stack[stackLength - 1];
+        const operations = cust.operations;
+        for (let n = 0, len = operations.length | 0; n < len; n++) {
+          const operation = operations[n];
+          const curr = renderStack[stackLength - 1];
           switch (operation.type) {
             case DomOperationType.PushChild:
-              stack[stackLength++] = curr.childNodes[operation.index];
+              renderStack[stackLength++] = curr.childNodes[operation.index];
               break;
             case DomOperationType.PushFirstChild:
-              stack[stackLength++] = curr.firstChild as ChildNode;
+              renderStack[stackLength++] = curr.firstChild as ChildNode;
               break;
             case DomOperationType.PushNextSibling:
-              stack[stackLength++] = curr.nextSibling as ChildNode;
+              renderStack[stackLength++] = curr.nextSibling as ChildNode;
               break;
             case DomOperationType.PopNode:
               stackLength--;
@@ -385,16 +396,6 @@ class CompileResult {
       //     //   }
       //     // }
       //   }
-
-      renderResults[renderResultsLength++] = {
-        dispose() {
-          let length = rootNodes.length | 0;
-          while (length) {
-            length = (length - 1) | 0;
-            rootNodes[length].remove();
-          }
-        },
-      };
     }
     return renderResults;
   }
