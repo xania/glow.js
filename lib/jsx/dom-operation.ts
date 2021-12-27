@@ -9,6 +9,7 @@ export enum DomOperationType {
   SetAttribute,
   SetTextContent,
   Renderable,
+  AddEventListener,
 }
 
 export interface PushFirstChildOperation {
@@ -39,6 +40,12 @@ export interface RenderableOperation {
   renderable: Renderable;
 }
 
+export interface AddEventListenerOperation {
+  type: DomOperationType.AddEventListener;
+  name: string;
+  handler: Function;
+}
+
 export type DomOperation =
   | PushFirstChildOperation
   | PushNextSiblingOperation
@@ -46,4 +53,5 @@ export type DomOperation =
   | PopNodeOperation
   | SetAttributeOperation
   | SetTextContentOperation
-  | RenderableOperation;
+  | RenderableOperation
+  | AddEventListenerOperation;

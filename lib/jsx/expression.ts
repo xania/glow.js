@@ -1,6 +1,6 @@
 export enum ExpressionType {
   Property,
-  Async,
+  Function,
 }
 
 export interface PropertyExpression {
@@ -8,9 +8,9 @@ export interface PropertyExpression {
   name: string;
 }
 
-export interface AsyncExpression {
-  type: ExpressionType.Async;
+export interface FunctionExpression {
+  type: ExpressionType.Function;
   observable: Expression;
 }
 
-export type Expression = PropertyExpression | AsyncExpression;
+export type Expression = PropertyExpression | FunctionExpression;

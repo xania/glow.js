@@ -21,18 +21,6 @@ export class RowContext<T> {
         type: ExpressionType.Property,
         name,
       },
-      async() {
-        return {
-          type: TemplateType.Expression,
-          expression: {
-            type: ExpressionType.Async,
-            observable: this.expression,
-          },
-          async(): any {
-            throw Error('Not yet implemented');
-          },
-        };
-      },
     };
   }
   get<U>(getter: (row: T) => U) {
@@ -44,7 +32,7 @@ export class RowContext<T> {
   remove(context: { remove: Function }) {
     if (context?.remove) context.remove();
   }
-  call(func: (row: T, element: Element) => void) {
+  call(func: (row: T, target: Element) => void) {
     return function (context: { values: T }) {
       func(context.values, null as any);
     };
@@ -75,6 +63,11 @@ export function createList<T>() {
     },
   };
 }
+
+// type RenderTarget = {
+//   appendChild<T extends Node>(node: T): T;
+//   addEventListener(): void;
+// };
 
 function createMutationsObserver<T>(
   target: Element,

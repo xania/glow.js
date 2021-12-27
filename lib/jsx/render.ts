@@ -42,7 +42,7 @@ export function render(
             } else if (attr.type === AttributeType.Event) {
               tag.addEventListener(attr.event, {
                 handleEvent() {
-                  attr.callback();
+                  attr.handler();
                 },
               });
             }

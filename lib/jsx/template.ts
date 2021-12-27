@@ -42,7 +42,7 @@ interface AttributeTemplate {
 interface EventTemplate {
   type: AttributeType.Event;
   event: string;
-  callback: Function;
+  handler: Function;
 }
 interface NativeTemplate {
   type: TemplateType.Text;
@@ -69,7 +69,6 @@ interface ContextTemplate {
 export interface ExpressionTemplate {
   type: TemplateType.Expression;
   expression: Expression;
-  async(): ExpressionTemplate;
 }
 
 export type RenderResult =

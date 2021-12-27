@@ -11,6 +11,7 @@ import { Subscribable } from '../util/rxjs';
 import { Expression, ExpressionType } from './expression';
 import flatten from './flatten';
 import { DomOperation, DomOperationType } from './dom-operation';
+import { State } from './state';
 
 export interface RenderProps {
   items: ArrayLike<unknown>;
@@ -18,14 +19,15 @@ export interface RenderProps {
   count: number;
 }
 
-interface RenderTarget {
-  appendChild(node: Node): void;
-}
+// interface RenderTarget {
+//   appendChild(node: Node): void;
+//   addEventListener(target: Element, name: string, handler: any): void;
+// }
 
-interface AttrExpression {
-  name: string;
-  expression: Expression;
-}
+// interface AttrExpression {
+//   name: string;
+//   expression: Expression;
+// }
 
 type StackItem = [Node, Template | Template[]];
 
@@ -54,8 +56,12 @@ export function compile(rootTemplate: Template | Template[]) {
             const attr = attrs[i];
             if (attr.type === AttributeType.Attribute) {
               setAttribute(dom, attr.name, attr.value);
-            } else {
-              // eventsMap.add(dom, { name: attr.event, callback: attr.callback });
+            } else if (attr.type === AttributeType.Event) {
+              operationsMap.add(dom, {
+                type: DomOperationType.AddEventListener,
+                name: attr.event,
+                handler: attr.handler,
+              });
             }
           }
         }
@@ -115,7 +121,7 @@ export function compile(rootTemplate: Template | Template[]) {
   return createResult();
 
   function createResult() {
-    const rootNodes = toArray(fragment.childNodes);
+    const rootNodes = toArray(fragment.childNodes as NodeListOf<Element>);
 
     const flattened = flatten(
       rootNodes.map(createNodeCustomization),
@@ -275,14 +281,16 @@ export function compile(rootTemplate: Template | Template[]) {
 
 class CompileResult {
   constructor(
-    private templateNodes: Node[],
+    private templateNodes: Element[],
     private customizations: (NodeCustomization | undefined)[] = []
   ) {}
 
-  renderStack: ChildNode[] = [];
+  renderStack: Element[] = [];
+
+  addEventListener() {}
 
   render(
-    rootTarget: RenderTarget,
+    rootTarget: Element,
     items: ArrayLike<any>,
     start: number = 0,
     count: number = (items.length - start) | 0
@@ -295,12 +303,24 @@ class CompileResult {
     const renderResults: RenderResult[] = new Array(count);
     const { renderStack } = this;
 
+    const eventsMap: any = {};
+    function addEventListener(
+      target: Element,
+      type: string,
+      listener: Function
+    ) {
+      eventsMap[type] = {
+        target,
+        listener,
+      };
+    }
+
     for (let n = start; n < end; n = (n + 1) | 0) {
       const values = items[n];
 
       const renderResult: RenderResult = new Array(rootLength);
       for (let i = 0; i < rootLength; i = (i + 1) | 0) {
-        const rootNode = templateNodes[i].cloneNode(true) as ChildNode;
+        const rootNode = templateNodes[i].cloneNode(true) as Element;
         rootTarget.appendChild(rootNode);
         renderResult[i] = rootNode;
 
@@ -317,39 +337,68 @@ class CompileResult {
           const curr = renderStack[stackLength - 1];
           switch (operation.type) {
             case DomOperationType.PushChild:
-              renderStack[stackLength++] = curr.childNodes[operation.index];
+              renderStack[stackLength++] = curr.childNodes[
+                operation.index
+              ] as Element;
               break;
             case DomOperationType.PushFirstChild:
-              renderStack[stackLength++] = curr.firstChild as ChildNode;
+              renderStack[stackLength++] = curr.firstChild as Element;
               break;
             case DomOperationType.PushNextSibling:
-              renderStack[stackLength++] = curr.nextSibling as ChildNode;
+              renderStack[stackLength++] = curr.nextSibling as Element;
               break;
             case DomOperationType.PopNode:
               stackLength--;
               break;
             case DomOperationType.SetTextContent:
-              if (values) {
-                const textContentExpr = operation.expression;
-                switch (textContentExpr.type) {
-                  case ExpressionType.Property:
-                    const value = values[textContentExpr.name];
-                    if (value) {
-                      if ('subscribe' in value) {
-                        const subsr = value.subscribe({
-                          next(v: any) {
-                            curr.textContent = v;
-                          },
-                        });
-                        renderResult.push(subsr);
-                      } else {
-                        curr.textContent = value;
-                      }
+              const textContentExpr = operation.expression;
+              switch (textContentExpr.type) {
+                case ExpressionType.Property:
+                  const value = values[textContentExpr.name];
+                  if (value) {
+                    if (value instanceof State) {
+                      curr.textContent = value.value;
+                      const subsr = value.subscribe({
+                        next(v: any) {
+                          curr.textContent = v;
+                        },
+                      });
+                      renderResult.push(subsr);
+                    } else {
+                      curr.textContent = value;
                     }
+                  }
 
-                    break;
-                }
+                  break;
               }
+              break;
+            case DomOperationType.SetAttribute:
+              const attrExpr = operation.expression;
+              switch (attrExpr.type) {
+                case ExpressionType.Property:
+                  const value = values[attrExpr.name];
+                  if (value) {
+                    if (value instanceof State) {
+                      const attrValue = value.value;
+                      if (attrValue)
+                        curr.setAttribute(operation.name, attrValue);
+                      const subsr = value.subscribe({
+                        next(v: any) {
+                          curr.setAttribute(operation.name, v);
+                          curr.textContent = v;
+                        },
+                      });
+                      renderResult.push(subsr);
+                    } else {
+                      curr.textContent = value;
+                    }
+                  }
+                  break;
+              }
+              break;
+
+            case DomOperationType.AddEventListener:
+              addEventListener(curr, operation.name, operation.handler);
               break;
             default:
               break;
@@ -401,6 +450,7 @@ class CompileResult {
       //     // }
       //   }
     }
+
     return renderResults;
   }
 }

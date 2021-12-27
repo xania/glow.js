@@ -1,13 +1,7 @@
 import { Subscribable, Observer, Unsubscribable } from '../util/rxjs';
-import {
-  RenderableTemplate,
-  TagTemplate,
-  Template,
-  TemplateType,
-} from './template';
+import { TagTemplate, Template, TemplateType } from './template';
 import { reverse } from '../util/reverse';
-import { Renderable, AttributeType, RenderContext } from './template';
-import { compile } from './compile';
+import { Renderable, AttributeType } from './template';
 
 declare type Attachable = {
   attachTo: (dom: HTMLElement) => { dispose(): any };
@@ -110,7 +104,7 @@ export function attributes(props: any | null): TagTemplate['attrs'] {
         return {
           type: AttributeType.Event,
           event: name.toLocaleLowerCase(),
-          callback: value,
+          handler: value,
         };
       } else {
         return {
