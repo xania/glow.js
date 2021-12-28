@@ -10,7 +10,7 @@ import {
   ListMutationType,
 } from '../../components';
 
-import { compile } from './compile';
+import { compile, RenderOptions } from './compile';
 import { ExpressionType } from './expression';
 
 export class RowContext<T> {
@@ -72,50 +72,37 @@ export function createList<T>() {
 function createMutationsObserver<T>(
   target: Element,
   template: {
-    render: (
-      target: Element,
-      items: ArrayLike<T>,
-      start: number,
-      count: number
-    ) => RenderResult;
+    render: (target: RenderTarget, options: RenderOptions) => RenderResult[];
   }
 ) {
-  const disposables: RenderResult[] = [];
+  const renderResults: RenderResult[] = [];
+  let renderResultsLength: number = 0;
+
+  function pushMany(items: RenderResult[]) {
+    for (let i = 0, len = items.length; i < len; i++)
+      renderResults[renderResultsLength++] = items[i];
+  }
+
+  const renderTarget: RenderTarget = new ElementTarget(target);
   return {
     next(mut: ListMutation<T>) {
       switch (mut.type) {
         case ListMutationType.PUSH:
-          disposables.push(template.render(target, [mut.values], 0, 1));
-          break;
-        case ListMutationType.PUSH_MANY:
-          disposables.push(
-            template.render(target, mut.items, mut.start, mut.count)
+          pushMany(
+            template.render(renderTarget, {
+              items: [mut.values],
+              start: 0,
+              count: 1,
+            })
           );
           break;
+        case ListMutationType.PUSH_MANY:
+          pushMany(template.render(renderTarget, mut));
+          break;
         case ListMutationType.CLEAR:
-          const stack: RenderResult[] = [];
-          let stackLength = 0;
-          for (let i = 0, len = disposables.length; i < len; i++) {
-            stack[0] = disposables[i];
-            stackLength = 1;
-
-            while (stackLength--) {
-              const curr = stack[stackLength] as RenderResult;
-              if (!curr) continue;
-              if (Array.isArray(curr)) {
-                for (const x of curr) {
-                  stack[stackLength++] = x;
-                }
-              } else if ('remove' in curr) {
-                curr.remove();
-              } else if ('dispose' in curr) {
-                curr.dispose();
-              } else if ('unsubscribe' in curr) {
-                curr.unsubscribe();
-              }
-            }
+          while (renderResultsLength) {
+            renderResults[--renderResultsLength].dispose();
           }
-          disposables.length = 0;
           break;
       }
 

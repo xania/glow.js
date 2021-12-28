@@ -93,11 +93,7 @@ export function compile(rootTemplate: Template | Template[]) {
                   target.textContent = x;
                 },
               });
-              return {
-                dispose() {
-                  subscr.unsubscribe();
-                },
-              };
+              return RenderResult.create(subscr);
             },
           },
         });
@@ -198,7 +194,7 @@ export function compile(rootTemplate: Template | Template[]) {
 
   function createFunctionRenderer(func: Function): Renderable {
     return {
-      render({ target }: { target: Node }, context: any): RenderResult {
+      render({ target }: { target: Node }, context: any) {
         const value = func(context);
         if (isSubscribable(value)) {
           const subscr = value.subscribe({
@@ -206,13 +202,10 @@ export function compile(rootTemplate: Template | Template[]) {
               target.textContent = x;
             },
           });
-          return {
-            dispose() {
-              subscr.unsubscribe();
-            },
-          };
+          return RenderResult.create(subscr);
         } else {
           target.textContent = value;
+          return;
         }
       },
     };
@@ -279,6 +272,12 @@ export function compile(rootTemplate: Template | Template[]) {
   }
 }
 
+export interface RenderOptions {
+  items: ArrayLike<any>;
+  start: number;
+  count: number;
+}
+
 class CompileResult {
   constructor(
     private templateNodes: Element[],
@@ -286,45 +285,33 @@ class CompileResult {
   ) {}
 
   renderStack: Element[] = [];
+  renderResults: RenderResult[] = [];
 
   addEventListener() {}
 
-  render(
-    rootTarget: Element,
-    items: ArrayLike<any>,
-    start: number = 0,
-    count: number = (items.length - start) | 0
-  ) {
+  render(rootTarget: RenderTarget, options: RenderOptions) {
+    const { items, start = 0, count = (items.length - start) | 0 } = options;
+
+    const { renderStack, renderResults } = this;
     const { templateNodes, customizations } = this;
     const rootLength = templateNodes.length | 0;
 
-    const end = (start + count) | 0;
     let renderResultsLength = 0;
-    const renderResults: RenderResult[] = new Array(count);
-    const { renderStack } = this;
 
-    const eventsMap: any = {};
-    function addEventListener(
-      target: Element,
-      type: string,
-      listener: Function
-    ) {
-      eventsMap[type] = {
-        target,
-        listener,
-      };
-    }
+    const end = (start + count - 1) | 0;
+    let remaining = count | 0;
+    while (remaining | 0) {
+      remaining = (remaining - 1) | 0;
+      const values = items[(end - remaining) | 0];
 
-    for (let n = start; n < end; n = (n + 1) | 0) {
-      const values = items[n];
-
-      const renderResult: RenderResult = new Array(rootLength);
+      const renderResult = new RenderResult();
+      renderResults[renderResultsLength++] = renderResult;
+      const disposables = renderResult.items;
+      let disposablesLength = disposables.length | 0;
       for (let i = 0; i < rootLength; i = (i + 1) | 0) {
         const rootNode = templateNodes[i].cloneNode(true) as Element;
         rootTarget.appendChild(rootNode);
-        renderResult[i] = rootNode;
-
-        renderResults[renderResultsLength++] = renderResult;
+        disposables[disposablesLength++] = rootNode;
 
         const cust = customizations[i];
         if (!cust) continue;
@@ -358,12 +345,12 @@ class CompileResult {
                   if (value) {
                     if (value instanceof State) {
                       curr.textContent = value.value;
-                      const subsr = value.subscribe({
+                      const subscr = value.subscribe({
                         next(v: any) {
                           curr.textContent = v;
                         },
                       });
-                      renderResult.push(subsr);
+                      disposables[disposablesLength++] = subscr;
                     } else {
                       curr.textContent = value;
                     }
@@ -382,13 +369,12 @@ class CompileResult {
                       const attrValue = value.value;
                       if (attrValue)
                         curr.setAttribute(operation.name, attrValue);
-                      const subsr = value.subscribe({
+                      const subscr = value.subscribe({
                         next(v: any) {
                           curr.setAttribute(operation.name, v);
-                          curr.textContent = v;
                         },
                       });
-                      renderResult.push(subsr);
+                      disposables[disposablesLength++] = subscr;
                     } else {
                       curr.textContent = value;
                     }
@@ -398,7 +384,11 @@ class CompileResult {
               break;
 
             case DomOperationType.AddEventListener:
-              addEventListener(curr, operation.name, operation.handler);
+              disposables[disposablesLength++] = rootTarget.addEventListener(
+                curr,
+                operation.name,
+                operation.handler
+              );
               break;
             default:
               break;
@@ -451,6 +441,7 @@ class CompileResult {
       //   }
     }
 
+    renderResults.length = renderResultsLength;
     return renderResults;
   }
 }

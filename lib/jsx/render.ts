@@ -1,4 +1,10 @@
-import { AttributeType, Renderable, Template, TemplateType } from './template';
+import {
+  AttributeType,
+  Renderable,
+  RenderResult,
+  Template,
+  TemplateType,
+} from './template';
 
 export interface RenderTarget {
   addEventListener(event: string, handler: EventHandler): void;
@@ -56,11 +62,7 @@ export function render(
         }
 
         if (target === root) {
-          disposables.push({
-            dispose() {
-              target.removeChild(tag);
-            },
-          });
+          disposables.push(RenderResult.create(tag));
         }
 
         break;
@@ -69,11 +71,7 @@ export function render(
         const textNode = document.createTextNode(child.value);
         target.appendChild(textNode);
         if (target === root) {
-          disposables.push({
-            dispose() {
-              target.removeChild(textNode);
-            },
-          });
+          disposables.push(RenderResult.create(textNode));
         }
         break;
 
@@ -85,15 +83,11 @@ export function render(
             subscribableNode.textContent = value;
           },
         });
-        disposables.push({
-          dispose() {
-            subcr.unsubscribe();
-          },
-        });
+        disposables.push(RenderResult.create(subcr));
         break;
 
       case TemplateType.Disposable:
-        disposables.push(child);
+        disposables.push(RenderResult.create(child));
         break;
       case TemplateType.DOM:
         target.appendChild(child.node);

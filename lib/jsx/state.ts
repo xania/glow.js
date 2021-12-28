@@ -8,7 +8,10 @@ export class State<T> {
 
   subscribe(observer: Observable<T>) {
     const { observers } = this;
+
     observers.push(observer);
+    //     const len = observers.length;
+    // observers[len] = observer;
 
     return {
       unsubscribe() {

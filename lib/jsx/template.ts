@@ -71,18 +71,47 @@ export interface ExpressionTemplate {
   expression: Expression;
 }
 
-export type RenderResult =
-  | Unsubscribable
-  | Disposable
-  | Removable
-  | RenderResult[]
-  | void;
+interface EventHandler {
+  target: Element;
+  type: string;
+  handler: any;
+}
+
+type RenderResultItem = Unsubscribable | Disposable | Removable;
+export class RenderResult {
+  readonly items: RenderResultItem[] = [];
+
+  static create(...results: (RenderResultItem | null | undefined | void)[]) {
+    var result = new RenderResult();
+    const { items } = result;
+
+    for (const x of results) {
+      if (x) {
+        items.push(x);
+      }
+    }
+
+    return result;
+  }
+
+  dispose() {
+    const { items } = this;
+    for (const item of items) {
+      if ('dispose' in item) item.dispose();
+      if ('remove' in item) item.remove();
+      if ('unsubscribe' in item) item.unsubscribe();
+    }
+
+    items.length = 0;
+  }
+}
+
 export interface RenderContext {
   values: any;
   remove(): unknown;
 }
 export interface Renderable {
-  render(driver: { target: any }, context?: RenderContext): RenderResult;
+  render(driver: { target: any }, context?: RenderContext): RenderResult | void;
 }
 export interface RenderableTemplate {
   type: TemplateType.Renderable;
