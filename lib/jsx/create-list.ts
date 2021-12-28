@@ -12,6 +12,7 @@ import {
 
 import { compile } from './compile';
 import { ExpressionType } from './expression';
+import { ElementTarget, RenderTarget } from './render-target';
 
 export class RowContext<T> {
   property(name: keyof T & string): ExpressionTemplate {
@@ -73,7 +74,7 @@ function createMutationsObserver<T>(
   target: Element,
   template: {
     render: (
-      target: Element,
+      target: RenderTarget,
       items: ArrayLike<T>,
       start: number,
       count: number
@@ -81,15 +82,16 @@ function createMutationsObserver<T>(
   }
 ) {
   const disposables: RenderResult[] = [];
+  const renderTarget: RenderTarget = new ElementTarget(target);
   return {
     next(mut: ListMutation<T>) {
       switch (mut.type) {
         case ListMutationType.PUSH:
-          disposables.push(template.render(target, [mut.values], 0, 1));
+          disposables.push(template.render(renderTarget, [mut.values], 0, 1));
           break;
         case ListMutationType.PUSH_MANY:
           disposables.push(
-            template.render(target, mut.items, mut.start, mut.count)
+            template.render(renderTarget, mut.items, mut.start, mut.count)
           );
           break;
         case ListMutationType.CLEAR:

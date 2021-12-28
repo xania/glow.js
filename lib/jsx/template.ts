@@ -71,10 +71,17 @@ export interface ExpressionTemplate {
   expression: Expression;
 }
 
+interface EventHandler {
+  target: Element;
+  type: string;
+  handler: any;
+}
+
 export type RenderResult =
   | Unsubscribable
   | Disposable
   | Removable
+  | EventHandler
   | RenderResult[]
   | void;
 export interface RenderContext {

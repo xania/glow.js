@@ -12,6 +12,7 @@ import { Expression, ExpressionType } from './expression';
 import flatten from './flatten';
 import { DomOperation, DomOperationType } from './dom-operation';
 import { State } from './state';
+import { RenderTarget } from './render-target';
 
 export interface RenderProps {
   items: ArrayLike<unknown>;
@@ -290,33 +291,22 @@ class CompileResult {
   addEventListener() {}
 
   render(
-    rootTarget: Element,
+    rootTarget: RenderTarget,
     items: ArrayLike<any>,
     start: number = 0,
     count: number = (items.length - start) | 0
   ) {
+    const { renderStack } = this;
     const { templateNodes, customizations } = this;
     const rootLength = templateNodes.length | 0;
 
-    const end = (start + count) | 0;
+    const end = (start + count - 1) | 0;
     let renderResultsLength = 0;
     const renderResults: RenderResult[] = new Array(count);
-    const { renderStack } = this;
-
-    const eventsMap: any = {};
-    function addEventListener(
-      target: Element,
-      type: string,
-      listener: Function
-    ) {
-      eventsMap[type] = {
-        target,
-        listener,
-      };
-    }
-
-    for (let n = start; n < end; n = (n + 1) | 0) {
-      const values = items[n];
+    let remaining = count | 0;
+    while (remaining | 0) {
+      remaining = (remaining - 1) | 0;
+      const values = items[(end - remaining) | 0];
 
       const renderResult: RenderResult = new Array(rootLength);
       for (let i = 0; i < rootLength; i = (i + 1) | 0) {
@@ -396,9 +386,12 @@ class CompileResult {
                   break;
               }
               break;
-
             case DomOperationType.AddEventListener:
-              addEventListener(curr, operation.name, operation.handler);
+              renderResult[renderResult.length] = rootTarget.addEventListener(
+                curr,
+                operation.name,
+                operation.handler
+              );
               break;
             default:
               break;
