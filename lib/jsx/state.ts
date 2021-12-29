@@ -4,14 +4,12 @@ interface Observable<T> {
 
 export class State<T> {
   observers: Observable<T>[] = [];
-  constructor(public value: T) {}
+  constructor(public current: T) {}
 
   subscribe(observer: Observable<T>) {
     const { observers } = this;
-
-    observers.push(observer);
-    //     const len = observers.length;
-    // observers[len] = observer;
+    const len = observers.length;
+    observers[len] = observer;
 
     return {
       unsubscribe() {
@@ -22,10 +20,10 @@ export class State<T> {
   }
 
   update(func: (p: T) => T) {
-    const { value } = this;
+    const { current: value } = this;
     const newValue = func(value);
     if (newValue !== value) {
-      this.value = newValue;
+      this.current = newValue;
       for (const o of this.observers) {
         o.next(newValue);
       }
@@ -33,6 +31,6 @@ export class State<T> {
   }
 
   toString() {
-    return this.value;
+    return this.current;
   }
 }

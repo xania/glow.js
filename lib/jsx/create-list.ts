@@ -12,6 +12,7 @@ import {
 
 import { compile, RenderOptions } from './compile';
 import { ExpressionType } from './expression';
+import { ElementTarget, RenderTarget } from './render-target';
 
 export class RowContext<T> {
   property(name: keyof T & string): ExpressionTemplate {

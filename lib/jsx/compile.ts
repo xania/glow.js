@@ -12,6 +12,7 @@ import { Expression, ExpressionType } from './expression';
 import flatten from './flatten';
 import { DomOperation, DomOperationType } from './dom-operation';
 import { State } from './state';
+import { RenderTarget } from './render-target';
 
 export interface RenderProps {
   items: ArrayLike<unknown>;
@@ -319,6 +320,7 @@ class CompileResult {
         renderStack[0] = rootNode;
         let stackLength = 1;
         const operations = cust.operations;
+        console.log(operations);
         for (let n = 0, len = operations.length | 0; n < len; n = (n + 1) | 0) {
           const operation = operations[n];
           const curr = renderStack[stackLength - 1];
@@ -344,13 +346,11 @@ class CompileResult {
                   const value = values[textContentExpr.name];
                   if (value) {
                     if (value instanceof State) {
-                      curr.textContent = value.value;
-                      const subscr = value.subscribe({
-                        next(v: any) {
-                          curr.textContent = v;
-                        },
-                      });
-                      disposables[disposablesLength++] = subscr;
+                      curr.textContent = value.current;
+                      disposables[disposablesLength++] = new SetContentObserver(
+                        value,
+                        curr
+                      );
                     } else {
                       curr.textContent = value;
                     }
@@ -366,23 +366,19 @@ class CompileResult {
                   const value = values[attrExpr.name];
                   if (value) {
                     if (value instanceof State) {
-                      const attrValue = value.value;
+                      const attrValue = value.current;
                       if (attrValue)
                         curr.setAttribute(operation.name, attrValue);
-                      const subscr = value.subscribe({
-                        next(v: any) {
-                          curr.setAttribute(operation.name, v);
-                        },
-                      });
-                      disposables[disposablesLength++] = subscr;
+
+                      disposables[disposablesLength++] =
+                        new SetAttributeObserver(value, curr, operation.name);
                     } else {
-                      curr.textContent = value;
+                      curr.setAttribute(operation.name, value);
                     }
                   }
                   break;
               }
               break;
-
             case DomOperationType.AddEventListener:
               disposables[disposablesLength++] = rootTarget.addEventListener(
                 curr,
@@ -473,6 +469,7 @@ type NodeCustomization = {
   node: ChildNode;
   operations: DomOperation[];
 };
+
 type TransformResult<T> = {
   [i: number]: VisitResult<T>;
 };
@@ -484,4 +481,38 @@ function toArray<T extends Node>(nodes: NodeListOf<T>) {
     result.push(nodes[i]);
   }
   return result;
+}
+
+class SetAttributeObserver {
+  constructor(
+    private state: State<any>,
+    private element: Element,
+    private name: string
+  ) {
+    const len = state.observers.length;
+    state.observers[len] = this;
+  }
+  next(nextValue: any) {
+    this.element.setAttribute(this.name, nextValue);
+  }
+  unsubscribe() {
+    const { observers } = this.state;
+    const idx = observers.indexOf(this);
+    observers.splice(idx, 1);
+  }
+}
+
+class SetContentObserver {
+  constructor(private state: State<any>, private element: Element) {
+    const len = state.observers.length;
+    state.observers[len] = this;
+  }
+  next(nextValue: any) {
+    this.element.textContent = nextValue;
+  }
+  unsubscribe() {
+    const { observers } = this.state;
+    const idx = observers.indexOf(this);
+    observers.splice(idx, 1);
+  }
 }
