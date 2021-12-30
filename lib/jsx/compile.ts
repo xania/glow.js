@@ -318,44 +318,52 @@ class CompileResult {
         if (!cust) continue;
 
         renderStack[0] = rootNode;
-        let stackLength = 1;
+        let stackPointer = 0;
         const operations = cust.operations;
-        console.log(operations);
         for (let n = 0, len = operations.length | 0; n < len; n = (n + 1) | 0) {
           const operation = operations[n];
-          const curr = renderStack[stackLength - 1];
+          const curr = renderStack[stackPointer];
           switch (operation.type) {
             case DomOperationType.PushChild:
-              renderStack[stackLength++] = curr.childNodes[
+              renderStack[++stackPointer] = curr.childNodes[
                 operation.index
               ] as Element;
               break;
             case DomOperationType.PushFirstChild:
-              renderStack[stackLength++] = curr.firstChild as Element;
+              renderStack[++stackPointer] = curr.firstChild as Element;
               break;
             case DomOperationType.PushNextSibling:
-              renderStack[stackLength++] = curr.nextSibling as Element;
+              renderStack[++stackPointer] = curr.nextSibling as Element;
               break;
             case DomOperationType.PopNode:
-              stackLength--;
+              stackPointer--;
               break;
             case DomOperationType.SetTextContent:
               const textContentExpr = operation.expression;
               switch (textContentExpr.type) {
                 case ExpressionType.Property:
                   const value = values[textContentExpr.name];
-                  if (value) {
-                    if (value instanceof State) {
-                      curr.textContent = value.current;
-                      disposables[disposablesLength++] = new SetContentObserver(
-                        value,
-                        curr
-                      );
-                    } else {
-                      curr.textContent = value;
-                    }
+                  if (value instanceof State) {
+                    curr.textContent = value.current;
+                    disposables[disposablesLength++] = new SetContentObserver(
+                      value,
+                      curr
+                    );
+                  } else if (value) {
+                    curr.textContent = value;
                   }
-
+                  break;
+                case ExpressionType.Async:
+                  const state = values[textContentExpr.name];
+                  if (state instanceof State) {
+                    curr.textContent = state.current;
+                    disposables[disposablesLength++] = new SetContentObserver(
+                      state,
+                      curr
+                    );
+                  } else if (state) {
+                    curr.textContent = state;
+                  }
                   break;
               }
               break;
@@ -364,17 +372,32 @@ class CompileResult {
               switch (attrExpr.type) {
                 case ExpressionType.Property:
                   const value = values[attrExpr.name];
-                  if (value) {
-                    if (value instanceof State) {
-                      const attrValue = value.current;
-                      if (attrValue)
-                        curr.setAttribute(operation.name, attrValue);
+                  if (value instanceof State) {
+                    const attrValue = value.current;
+                    if (attrValue) curr.setAttribute(operation.name, attrValue);
 
-                      disposables[disposablesLength++] =
-                        new SetAttributeObserver(value, curr, operation.name);
-                    } else {
-                      curr.setAttribute(operation.name, value);
-                    }
+                    disposables[disposablesLength++] = new SetAttributeObserver(
+                      value,
+                      curr,
+                      operation.name
+                    );
+                  } else if (value) {
+                    curr.setAttribute(operation.name, value);
+                  }
+                  break;
+                case ExpressionType.Async:
+                  const state = values[attrExpr.name];
+                  if (state instanceof State) {
+                    const attrValue = state.current;
+                    if (attrValue) curr.setAttribute(operation.name, attrValue);
+
+                    disposables[disposablesLength++] = new SetAttributeObserver(
+                      state,
+                      curr,
+                      operation.name
+                    );
+                  } else {
+                    curr.setAttribute(operation.name, state);
                   }
                   break;
               }
