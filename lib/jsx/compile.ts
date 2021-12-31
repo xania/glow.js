@@ -12,7 +12,7 @@ import { Expression, ExpressionType } from './expression';
 import flatten from './flatten';
 import { DomOperation, DomOperationType } from './dom-operation';
 import { State } from './state';
-import { RenderTarget } from './render-target';
+import { RenderContainer } from './container';
 
 export interface RenderProps {
   items: ArrayLike<unknown>;
@@ -118,7 +118,7 @@ export function compile(rootTemplate: Template | Template[]) {
   return createResult();
 
   function createResult() {
-    const rootNodes = toArray(fragment.childNodes as NodeListOf<Element>);
+    const rootNodes = toArray(fragment.childNodes as NodeListOf<HTMLElement>);
 
     const flattened = flatten(
       rootNodes.map(createNodeCustomization),
@@ -281,16 +281,16 @@ export interface RenderOptions {
 
 class CompileResult {
   constructor(
-    private templateNodes: Element[],
+    private templateNodes: HTMLElement[],
     private customizations: (NodeCustomization | undefined)[] = []
   ) {}
 
-  renderStack: Element[] = [];
+  renderStack: HTMLElement[] = [];
   renderResults: RenderResult[] = [];
 
   addEventListener() {}
 
-  render(rootTarget: RenderTarget, options: RenderOptions) {
+  render(rootContainer: RenderContainer, options: RenderOptions) {
     const { items, start = 0, count = (items.length - start) | 0 } = options;
 
     const { renderStack, renderResults } = this;
@@ -300,8 +300,8 @@ class CompileResult {
     let renderResultsLength = 0;
 
     const end = (start + count - 1) | 0;
-    let remaining = count | 0;
-    while (remaining | 0) {
+    let remaining = count;
+    while (remaining) {
       remaining = (remaining - 1) | 0;
       const values = items[(end - remaining) | 0];
 
@@ -310,33 +310,33 @@ class CompileResult {
       const disposables = renderResult.items;
       let disposablesLength = disposables.length | 0;
       for (let i = 0; i < rootLength; i = (i + 1) | 0) {
-        const rootNode = templateNodes[i].cloneNode(true) as Element;
-        rootTarget.appendChild(rootNode);
+        const rootNode = templateNodes[i].cloneNode(true) as HTMLElement;
+        rootContainer.appendChild(rootNode);
         disposables[disposablesLength++] = rootNode;
 
         const cust = customizations[i];
         if (!cust) continue;
 
         renderStack[0] = rootNode;
-        let stackPointer = 0;
+        let renderIndex = 0;
         const operations = cust.operations;
         for (let n = 0, len = operations.length | 0; n < len; n = (n + 1) | 0) {
           const operation = operations[n];
-          const curr = renderStack[stackPointer];
+          const curr = renderStack[renderIndex];
           switch (operation.type) {
             case DomOperationType.PushChild:
-              renderStack[++stackPointer] = curr.childNodes[
+              renderStack[++renderIndex] = curr.childNodes[
                 operation.index
-              ] as Element;
+              ] as HTMLElement;
               break;
             case DomOperationType.PushFirstChild:
-              renderStack[++stackPointer] = curr.firstChild as Element;
+              renderStack[++renderIndex] = curr.firstChild as HTMLElement;
               break;
             case DomOperationType.PushNextSibling:
-              renderStack[++stackPointer] = curr.nextSibling as Element;
+              renderStack[++renderIndex] = curr.nextSibling as HTMLElement;
               break;
             case DomOperationType.PopNode:
-              stackPointer--;
+              renderIndex--;
               break;
             case DomOperationType.SetTextContent:
               const textContentExpr = operation.expression;
@@ -403,7 +403,7 @@ class CompileResult {
               }
               break;
             case DomOperationType.AddEventListener:
-              disposables[disposablesLength++] = rootTarget.addEventListener(
+              disposables[disposablesLength++] = rootContainer.addEventListener(
                 curr,
                 operation.name,
                 operation.handler
