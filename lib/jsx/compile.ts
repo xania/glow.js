@@ -302,10 +302,10 @@ class CompileResult {
     const end = (start + count - 1) | 0;
     for (let n = start; n < end; n = (n + 1) | 0) {
       const values = items[n];
-
-      const renderResult = new RenderResult();
-      renderResults[renderResultsLength++] = renderResult;
+      const renderResult = new RenderResult(values);
       const disposables = renderResult.items;
+
+      renderResults[renderResultsLength++] = renderResult;
       let disposablesLength = disposables.length | 0;
       for (let i = 0; i < rootLength; i = (i + 1) | 0) {
         const rootNode = templateNodes[i].cloneNode(true) as HTMLElement;
@@ -387,7 +387,9 @@ class CompileResult {
                   const state = values[attrExpr.name];
                   if (state instanceof State) {
                     const attrValue = state.current;
-                    if (attrValue) curr.setAttribute(operation.name, attrValue);
+                    if (attrValue) {
+                      curr.setAttribute(operation.name, attrValue);
+                    }
 
                     disposables[disposablesLength++] = new SetAttributeObserver(
                       state,
@@ -404,7 +406,8 @@ class CompileResult {
               disposables[disposablesLength++] = rootContainer.addEventListener(
                 curr,
                 operation.name,
-                operation.handler
+                operation.handler,
+                renderResult
               );
               break;
             default:
@@ -514,7 +517,12 @@ class SetAttributeObserver {
     state.observers[len] = this;
   }
   next(nextValue: any) {
-    (this.element as any)[this.name] = nextValue;
+    const { element, name } = this;
+    if (name === 'class') {
+      element.className = nextValue;
+    } else {
+      (element as any)[name] = nextValue;
+    }
   }
   unsubscribe() {
     const { observers } = this.state;

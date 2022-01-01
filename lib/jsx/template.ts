@@ -81,8 +81,10 @@ type RenderResultItem = Unsubscribable | Disposable | Removable;
 export class RenderResult {
   readonly items: RenderResultItem[] = [];
 
+  constructor(public values: any) {}
+
   static create(...results: (RenderResultItem | null | undefined | void)[]) {
-    var result = new RenderResult();
+    var result = new RenderResult(null);
     const { items } = result;
 
     for (const x of results) {

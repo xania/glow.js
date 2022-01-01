@@ -30,8 +30,8 @@ export class RowContext<T> {
       return null;
     };
   }
-  remove(context: { remove: Function }) {
-    if (context?.remove) context.remove();
+  remove(context: { dispose: Function }) {
+    if (context?.dispose) context.dispose();
   }
   call(func: (row: T, target: Element) => void) {
     return function (context: { values: T }) {
