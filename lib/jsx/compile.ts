@@ -300,10 +300,8 @@ class CompileResult {
     let renderResultsLength = 0;
 
     const end = (start + count - 1) | 0;
-    let remaining = count;
-    while (remaining) {
-      remaining = (remaining - 1) | 0;
-      const values = items[(end - remaining) | 0];
+    for (let n = start; n < end; n = (n + 1) | 0) {
+      const values = items[n];
 
       const renderResult = new RenderResult();
       renderResults[renderResultsLength++] = renderResult;
@@ -374,7 +372,7 @@ class CompileResult {
                   const value = values[attrExpr.name];
                   if (value instanceof State) {
                     const attrValue = value.current;
-                    if (attrValue) curr.setAttribute(operation.name, attrValue);
+                    if (attrValue) (curr as any)[operation.name] = attrValue;
 
                     disposables[disposablesLength++] = new SetAttributeObserver(
                       value,
@@ -382,7 +380,7 @@ class CompileResult {
                       operation.name
                     );
                   } else if (value) {
-                    curr.setAttribute(operation.name, value);
+                    (curr as any)[operation.name] = value;
                   }
                   break;
                 case ExpressionType.Async:
@@ -516,7 +514,7 @@ class SetAttributeObserver {
     state.observers[len] = this;
   }
   next(nextValue: any) {
-    this.element.setAttribute(this.name, nextValue);
+    (this.element as any)[this.name] = nextValue;
   }
   unsubscribe() {
     const { observers } = this.state;
