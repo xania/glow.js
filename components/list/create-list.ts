@@ -91,10 +91,8 @@ export function createList<T>(source: ListSource<T>) {
         if (m.type === ListMutationType.PUSH) {
           const { values } = m;
           renderInsert(values, listItems.length);
-        } else if (m.type === ListMutationType.REMOVE) {
-          if ('index' in m) {
-            renderRemoveAt(m.index);
-          }
+        } else if (m.type === ListMutationType.REMOVE_AT) {
+          renderRemoveAt(m.index);
         } else if (m.type === ListMutationType.RESET) {
           const { items } = m;
           const newLength = items.length;

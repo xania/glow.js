@@ -8,7 +8,7 @@ export function bindMutationsTo<T>(target: Target<T>) {
     next(mut: ListMutation<T>) {
       if (typeof target.update === 'function')
         target.update((items) => {
-          if (mut.type === ListMutationType.REMOVE) {
+          if (mut.type === ListMutationType.REMOVE_AT) {
             if ('index' in mut) {
               items.splice(mut.index, 1);
             }

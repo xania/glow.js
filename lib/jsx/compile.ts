@@ -303,14 +303,15 @@ class CompileResult {
     for (let n = start; n < end; n = (n + 1) | 0) {
       const values = items[n];
       const renderResult = new RenderResult(values);
-      const disposables = renderResult.items;
-
       renderResults[renderResultsLength++] = renderResult;
-      let disposablesLength = disposables.length | 0;
+
+      const rootNodes = renderResult.items;
+      let rootNodesLength = rootNodes.length | 0;
+
       for (let i = 0; i < rootLength; i = (i + 1) | 0) {
         const rootNode = templateNodes[i].cloneNode(true) as HTMLElement;
         rootContainer.appendChild(rootNode);
-        disposables[disposablesLength++] = rootNode;
+        rootNodes[rootNodesLength++] = rootNode;
 
         const cust = customizations[i];
         if (!cust) continue;
@@ -343,7 +344,7 @@ class CompileResult {
                   const value = values[textContentExpr.name];
                   if (value instanceof State) {
                     curr.textContent = value.current;
-                    disposables[disposablesLength++] = new SetContentObserver(
+                    rootNodes[rootNodesLength++] = new SetContentObserver(
                       value,
                       curr
                     );
@@ -355,7 +356,7 @@ class CompileResult {
                   const state = values[textContentExpr.name];
                   if (state instanceof State) {
                     curr.textContent = state.current;
-                    disposables[disposablesLength++] = new SetContentObserver(
+                    rootNodes[rootNodesLength++] = new SetContentObserver(
                       state,
                       curr
                     );
@@ -374,7 +375,7 @@ class CompileResult {
                     const attrValue = value.current;
                     if (attrValue) (curr as any)[operation.name] = attrValue;
 
-                    disposables[disposablesLength++] = new SetAttributeObserver(
+                    rootNodes[rootNodesLength++] = new SetAttributeObserver(
                       value,
                       curr,
                       operation.name
@@ -391,7 +392,7 @@ class CompileResult {
                       curr.setAttribute(operation.name, attrValue);
                     }
 
-                    disposables[disposablesLength++] = new SetAttributeObserver(
+                    rootNodes[rootNodesLength++] = new SetAttributeObserver(
                       state,
                       curr,
                       operation.name
@@ -403,7 +404,7 @@ class CompileResult {
               }
               break;
             case DomOperationType.AddEventListener:
-              disposables[disposablesLength++] = rootContainer.addEventListener(
+              rootNodes[rootNodesLength++] = rootContainer.addEventListener(
                 curr,
                 operation.name,
                 operation.handler,

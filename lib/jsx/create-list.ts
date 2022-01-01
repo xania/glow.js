@@ -105,6 +105,19 @@ function createMutationsObserver<T>(
             renderResults[--renderResultsLength].dispose();
           }
           break;
+        case ListMutationType.REMOVE:
+          const itemToRemove = mut.item;
+          for (let i = 0; i < renderResultsLength; i++) {
+            const rr = renderResults[i];
+
+            if (rr.values === itemToRemove) {
+              rr.dispose();
+              renderResults.splice(i, 1);
+              renderResultsLength--;
+              break;
+            }
+          }
+          break;
       }
 
       // function renderPush(target: Element, values: T) {

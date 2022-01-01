@@ -11,13 +11,14 @@ export type ListMutation<T = unknown> =
   | ClearItems;
 
 export enum ListMutationType {
-  PUSH = 0,
-  MOVE = 1,
-  REMOVE = 2,
-  INSERT = 3,
-  RESET = 4,
-  CLEAR = 5,
-  PUSH_MANY = 6,
+  PUSH,
+  MOVE,
+  REMOVE,
+  REMOVE_AT,
+  INSERT,
+  RESET,
+  CLEAR,
+  PUSH_MANY,
 }
 
 interface PushItem<T> {
@@ -39,11 +40,11 @@ interface MoveItem {
 
 interface RemoveItem<T> {
   type: ListMutationType.REMOVE;
-  predicate(t: T): boolean;
+  item: T;
 }
 
 interface RemoveItemAt {
-  type: ListMutationType.REMOVE;
+  type: ListMutationType.REMOVE_AT;
   index: number;
 }
 
@@ -76,18 +77,17 @@ export function insertItem<T>(values: T, index: number): InsertItem<T> {
   };
 }
 
-export function removeItem<T>(
-  predicateOrIndex: number | ((t: T) => boolean)
-): RemoveItem<T> | RemoveItemAt {
-  if (typeof predicateOrIndex === 'function')
-    return {
-      type: ListMutationType.REMOVE,
-      predicate: predicateOrIndex,
-    };
-
+export function removeItem<T>(item: T): RemoveItem<T> {
   return {
     type: ListMutationType.REMOVE,
-    index: predicateOrIndex,
+    item,
+  };
+}
+
+export function removeItemAt(index: number): RemoveItemAt {
+  return {
+    type: ListMutationType.REMOVE_AT,
+    index,
   };
 }
 
