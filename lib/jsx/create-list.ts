@@ -71,7 +71,7 @@ export function createList<T>() {
 // };
 
 function createMutationsObserver<T>(
-  target: Element,
+  containerElt: Element,
   template: {
     render: (target: RenderContainer, options: RenderOptions) => RenderResult[];
   }
@@ -84,7 +84,7 @@ function createMutationsObserver<T>(
       renderResults[renderResultsLength++] = items[i];
   }
 
-  const container = new ElementContainer(target);
+  const container = new ElementContainer(containerElt);
   return {
     next(mut: ListMutation<T>) {
       switch (mut.type) {
@@ -117,6 +117,25 @@ function createMutationsObserver<T>(
               break;
             }
           }
+          break;
+        case ListMutationType.MOVE:
+          const { from, to } = mut;
+          const fromRR = renderResults[from];
+
+          for (let n = to; n < renderResultsLength; n++) {
+            const rr = renderResults[n];
+            if (rr.items.length) {
+              const refNode = rr.items[0] as any;
+
+              for (const item of fromRR.items) {
+                containerElt.insertBefore(item as any, refNode);
+              }
+
+              console.log(refNode);
+              break;
+            }
+          }
+
           break;
       }
 

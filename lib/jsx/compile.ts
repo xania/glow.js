@@ -299,7 +299,7 @@ class CompileResult {
 
     let renderResultsLength = 0;
 
-    const end = (start + count - 1) | 0;
+    const end = (start + count) | 0;
     for (let n = start; n < end; n = (n + 1) | 0) {
       const values = items[n];
       const renderResult = new RenderResult(values);
