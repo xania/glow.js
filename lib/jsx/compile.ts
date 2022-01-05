@@ -94,7 +94,7 @@ export function compile(rootTemplate: Template | Template[]) {
                   target.textContent = x;
                 },
               });
-              return RenderResult.create(subscr);
+              return RenderResult.create(null, subscr);
             },
           },
         });
@@ -203,7 +203,7 @@ export function compile(rootTemplate: Template | Template[]) {
               target.textContent = x;
             },
           });
-          return RenderResult.create(subscr);
+          return RenderResult.create(null, subscr);
         } else {
           target.textContent = value;
           return;
@@ -311,7 +311,7 @@ class CompileResult {
       for (let i = 0; i < rootLength; i = (i + 1) | 0) {
         const rootNode = templateNodes[i].cloneNode(true) as HTMLElement;
         rootContainer.appendChild(rootNode);
-        rootNodes[rootNodesLength++] = rootNode;
+        renderResult.nodes.push(rootNode);
 
         const cust = customizations[i];
         if (!cust) continue;

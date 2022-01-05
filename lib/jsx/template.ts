@@ -77,15 +77,19 @@ interface EventHandler {
   handler: any;
 }
 
-type RenderResultItem = Unsubscribable | Disposable | Removable;
+type RenderResultItem = Unsubscribable | Disposable;
 export class RenderResult {
   readonly items: RenderResultItem[] = [];
+  readonly nodes: Node[] = [];
 
   constructor(public values: any) {}
 
-  static create(...results: (RenderResultItem | null | undefined | void)[]) {
+  static create(
+    node: Node | null,
+    ...results: (RenderResultItem | null | undefined | void)[]
+  ) {
     var result = new RenderResult(null);
-    const { items } = result;
+    const { items, nodes } = result;
 
     for (const x of results) {
       if (x) {
@@ -93,15 +97,20 @@ export class RenderResult {
       }
     }
 
+    if (node) nodes.push(node);
+
     return result;
   }
 
   dispose() {
-    const { items } = this;
+    const { items, nodes } = this;
     for (const item of items) {
       if ('dispose' in item) item.dispose();
-      if ('remove' in item) item.remove();
       if ('unsubscribe' in item) item.unsubscribe();
+    }
+
+    for (const elt of nodes) {
+      (elt as any).remove();
     }
 
     items.length = 0;

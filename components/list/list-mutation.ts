@@ -8,7 +8,8 @@ export type ListMutation<T = unknown> =
   | RemoveItemAt
   | InsertItem<T>
   | ResetItems<T>
-  | ClearItems;
+  | ClearItems
+  | SwapItems;
 
 export enum ListMutationType {
   PUSH,
@@ -19,6 +20,7 @@ export enum ListMutationType {
   RESET,
   CLEAR,
   PUSH_MANY,
+  SWAP,
 }
 
 interface PushItem<T> {
@@ -61,6 +63,12 @@ interface ResetItems<T> {
 
 interface ClearItems {
   type: ListMutationType.CLEAR;
+}
+
+interface SwapItems {
+  type: ListMutationType.SWAP;
+  index1: number;
+  index2: number;
 }
 
 export function pushItem<T>(values: T): PushItem<T> {

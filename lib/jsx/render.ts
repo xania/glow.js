@@ -83,11 +83,11 @@ export function render(
             subscribableNode.textContent = value;
           },
         });
-        disposables.push(RenderResult.create(subcr));
+        disposables.push(RenderResult.create(null, subcr));
         break;
 
       case TemplateType.Disposable:
-        disposables.push(RenderResult.create(child));
+        disposables.push(RenderResult.create(null, child));
         break;
       case TemplateType.DOM:
         target.appendChild(child.node);

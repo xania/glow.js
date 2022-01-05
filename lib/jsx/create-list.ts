@@ -84,6 +84,22 @@ function createMutationsObserver<T>(
       renderResults[renderResultsLength++] = items[i];
   }
 
+  function moveNodes(nodes: Node[], toIndex: number) {
+    if (nodes && nodes.length)
+      for (let n = toIndex + 1; n < renderResultsLength; n++) {
+        const rr = renderResults[n];
+        if (rr.nodes.length) {
+          const refNode = rr.nodes[0] as any;
+
+          for (const node of nodes) {
+            containerElt.insertBefore(node, refNode);
+          }
+
+          break;
+        }
+      }
+  }
+
   const container = new ElementContainer(containerElt);
   return {
     next(mut: ListMutation<T>) {
@@ -120,21 +136,33 @@ function createMutationsObserver<T>(
           break;
         case ListMutationType.MOVE:
           const { from, to } = mut;
-          const fromRR = renderResults[from];
 
-          for (let n = to; n < renderResultsLength; n++) {
-            const rr = renderResults[n];
-            if (rr.items.length) {
-              const refNode = rr.items[0] as any;
-
-              for (const item of fromRR.items) {
-                containerElt.insertBefore(item as any, refNode);
-              }
-
-              console.log(refNode);
-              break;
+          if (from < to) {
+            const tmp = renderResults[from];
+            for (let n = from; n < to; n++) {
+              renderResults[n] = renderResults[n + 1];
             }
+            renderResults[to] = tmp;
+          } else {
+            const tmp = renderResults[from];
+            for (let n = from; n > to; n--) {
+              renderResults[n] = renderResults[n - 1];
+            }
+            renderResults[to] = tmp;
           }
+
+          moveNodes(renderResults[to].nodes, to);
+
+          break;
+        case ListMutationType.SWAP:
+          const { index1, index2 } = mut;
+          const nodes1 = renderResults[index1];
+          const nodes2 = renderResults[index2];
+          renderResults[index1] = renderResults[index2];
+          renderResults[index2] = nodes1;
+
+          moveNodes(nodes1.nodes, index2);
+          moveNodes(nodes2.nodes, index1);
 
           break;
       }
