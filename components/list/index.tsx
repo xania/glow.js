@@ -17,5 +17,6 @@ export function List<T>(props: ListProps<T>, children: any) {
 }
 
 export * from './create-list';
+export * from './list-item';
 export * from './list-source';
 export * from './list-mutation';

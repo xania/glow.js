@@ -4,4 +4,3 @@ export { DomDriver } from './dom';
 export * from './driver';
 export * from './fragment';
 export * from '../components';
-export * from './jsx/state';
