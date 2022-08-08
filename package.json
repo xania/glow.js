@@ -2,7 +2,7 @@
   "version": "0.2.15",
   "license": "MIT",
   "main": "lib/index.ts",
-  "module": "dist/es2015/glow.js/lib/index.js",
+  "module": "lib/index.ts",
   "files": [
     "dist",
     "lib",
